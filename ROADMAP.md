@@ -4,7 +4,7 @@
 
 | Milestone | Status |
 |---|---|
-| M0 Setup | In progress |
+| M0 Setup | Done |
 | M1 First playable | Not started |
 | M2 Full classic game | Not started |
 | M3 Endless and smarter | Not started |
@@ -18,7 +18,7 @@
 - [x] M0.2 Branch protection on `main` with the four required checks
 - [x] M0.3 GitHub Pages turned on (Actions mode, `main` only); first staging deploy and ZAP scan pass
 - [x] M0.4 Portal entry `games/waka-waka.json` (status `in-development`) merged in `soncsec/games-portal` (PR #24)
-- [ ] M0.5 PROJECT.md, ARCHITECTURE.md and ROADMAP.md approved by the owner
+- [x] M0.5 PROJECT.md, ARCHITECTURE.md and ROADMAP.md approved by the owner (PR #3)
 
 ## M1 — First playable
 
