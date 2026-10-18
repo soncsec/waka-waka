@@ -1,4 +1,4 @@
-import { HERO, MURK, ROUND, SCORE } from '../config/tuning';
+import { HERO, OPPONENTS, ROUND, SCORE } from '../config/tuning';
 import { isWalkable, TILE, type Maze } from './maze';
 import {
   chooseToward,
@@ -10,6 +10,7 @@ import {
   type Mover,
   type Point,
 } from './movement';
+import { chaseTarget, createOpponents, mayLeave, moveInHouse, type Opponent } from './opponents';
 
 /**
  * - ready: "READY!" pause; input is buffered.
@@ -26,8 +27,8 @@ export interface GameState {
   /** Mutable copy of the maze grid: eaten dots become empty corridor. */
   tiles: string[][];
   hero: Mover;
-  /** Murk, the first opponent; the rest of the cast arrives in M2.1. */
-  murk: Mover;
+  /** Murk, Gnash, Bolt and Wisp, in that order (WW-02). */
+  opponents: Opponent[];
   /** Direction the player asked for, kept until it can be taken. */
   wanted: Dir | null;
   score: number;
@@ -36,15 +37,14 @@ export interface GameState {
   phase: Phase;
   /** Seconds spent in the current phase. */
   phaseTime: number;
+  /** Dots and pellets eaten since this life began, for the house release. */
+  dotsThisLife: number;
+  /** Seconds since the hero last ate, for the house release. */
+  sinceDot: number;
 }
 
 export interface Eaten extends Point {
   kind: 'dot' | 'pellet';
-}
-
-/** Murk starts on the corridor just above the ghost-house door. */
-export function murkStart(maze: Maze): Point {
-  return { x: maze.start.x, y: maze.house.y0 - 1 };
 }
 
 export function createGame(maze: Maze): GameState {
@@ -54,23 +54,27 @@ export function createGame(maze: Maze): GameState {
     maze,
     tiles,
     hero: { x: 0, y: 0, dir: HERO.startDir, moving: true },
-    murk: { x: 0, y: 0, dir: MURK.startDir, moving: true },
+    opponents: [],
     wanted: null,
     score: 0,
     lives: ROUND.lives,
     dotsLeft,
     phase: 'ready',
     phaseTime: 0,
+    dotsThisLife: 0,
+    sinceDot: 0,
   };
   resetActors(state);
   return state;
 }
 
-/** Puts the hero and Murk back on their starting tiles (the dots stay eaten). */
+/** Puts everyone back on their starting tiles (the dots stay eaten). */
 function resetActors(state: GameState): void {
   state.hero = { ...state.maze.start, dir: HERO.startDir, moving: true };
-  state.murk = { ...murkStart(state.maze), dir: MURK.startDir, moving: true };
+  state.opponents = createOpponents(state.maze);
   state.wanted = null;
+  state.dotsThisLife = 0;
+  state.sinceDot = 0;
 }
 
 function enter(state: GameState, phase: Phase): void {
@@ -135,10 +139,44 @@ function play(state: GameState, dt: number): Eaten[] {
     }
   }
 
-  // Murk heads for the hero's tile (WW-02); scatter and the other targets come in M2.
-  const target = tileOf(state.hero, maze.width);
-  steer(state.murk, MURK.speed * dt, (m) => chooseToward(m, target, open), open, maze.width);
+  if (eaten.length > 0) {
+    state.dotsThisLife++;
+    state.sinceDot = 0;
+  } else {
+    state.sinceDot += dt;
+  }
 
-  if (gap(state.hero, state.murk, maze.width) < ROUND.catchDistance) enter(state, 'dying');
+  moveOpponents(state, dt, open);
+  const caught = state.opponents.some(
+    (o) => o.state === 'out' && gap(state.hero, o, maze.width) < ROUND.catchDistance,
+  );
+  if (caught) enter(state, 'dying');
   return eaten;
+}
+
+function moveOpponents(
+  state: GameState,
+  dt: number,
+  open: (x: number, y: number) => boolean,
+): void {
+  const { maze } = state;
+  const hero = { ...tileOf(state.hero, maze.width), dir: state.hero.dir };
+  const murk = state.opponents[0] as Opponent;
+  const ctx = { maze, hero, murk: tileOf(murk, maze.width) };
+
+  // Release waiting opponents one at a time, in cast order.
+  const next = state.opponents.findIndex((o) => o.state === 'waiting');
+  if (next >= 0 && mayLeave(next, state.dotsThisLife, state.sinceDot)) {
+    (state.opponents[next] as Opponent).state = 'leaving';
+    state.sinceDot = 0;
+  }
+
+  for (const o of state.opponents) {
+    if (o.state !== 'out') {
+      moveInHouse(o, maze, OPPONENTS.houseSpeed * dt);
+      continue;
+    }
+    const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
+    steer(o, OPPONENTS.speed * dt, choose, open, maze.width);
+  }
 }

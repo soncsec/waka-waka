@@ -21,10 +21,31 @@ export const HERO = {
   chompHz: 14,
 } as const;
 
-/** Murk, the first opponent (WW-02). Speeds are in tiles per second. */
-export const MURK = {
+/** The opponents (WW-02). Speeds are in tiles per second; distances in tiles. */
+export const OPPONENTS = {
   speed: 7.0,
+  /** Speed inside the ghost house, waiting and leaving. */
+  houseSpeed: 3.5,
+  /** Direction an opponent takes when it comes out of the door. */
   startDir: 'left',
+  /** Gnash aims this far ahead of the hero. */
+  gnashAhead: 4,
+  /** Bolt pivots on the point this far ahead of the hero. */
+  boltAhead: 2,
+  /** Wisp gives up the chase when closer than this. */
+  wispShyDistance: 8,
+  /** Bolt and Wisp wait this far either side of the house centre. */
+  houseSpacing: 2,
+  /** How far waiting opponents bob up and down from the house centre. */
+  bob: 0.5,
+} as const;
+
+/** When opponents leave the ghost house (WW-02), by cast order: Murk, Gnash, Bolt, Wisp. */
+export const HOUSE_RELEASE = {
+  /** Dots eaten this life before each may leave. */
+  dots: [0, 0, 30, 60],
+  /** Any waiting opponent leaves if the hero goes this long without eating. */
+  idleSeconds: 4,
 } as const;
 
 /** Round rules. Times are in seconds. */
