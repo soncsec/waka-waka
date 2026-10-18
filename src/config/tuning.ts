@@ -14,3 +14,35 @@ export const PLAYER = {
 
 /** Seed for the random number generator; override with ?seed= in the URL. */
 export const DEFAULT_SEED = 1;
+
+/**
+ * Maze generation (WW-03). The maze is a lattice of corridor nodes `pitch` tiles
+ * apart: corridors are 1 tile wide and walls at least 2 tiles thick.
+ * Grid size = pitch * (cols - 1) + 3 by pitch * (rows - 1) + 3 tiles (24 x 27).
+ */
+export const MAZE = {
+  /** Lattice size in nodes. */
+  cols: 8,
+  rows: 9,
+  /** Tiles between neighbouring nodes. */
+  pitch: 3,
+  /** Ghost house: lattice rectangle (inclusive), door in the top centre. */
+  house: { col0: 2, col1: 5, row0: 3, row1: 5 },
+  /** Lattice row of the wrap-around tunnel. */
+  tunnelRow: 4,
+  /** Lattice row of the hero's start corridor. */
+  startRow: 6,
+  /** Share of corridor segments to close, picked per maze in [min, max). */
+  closeRatioMin: 0.36,
+  closeRatioMax: 0.48,
+  /** Chance that closing a segment may leave a node with no corridors (a solid block). */
+  solidChance: 0.35,
+  /** Longest chain of corner nodes, in segments (3 segments = 8 tiles with no turn-off). */
+  maxChainSegments: 3,
+  /** Owner's rule: no stretch longer than this many tiles without a turn-off, counted around corners. */
+  maxStretchTiles: 10,
+  /** Power pellets per maze, one near each corner. */
+  pellets: 4,
+  /** Generation attempts before the built-in fallback maze is used. */
+  maxAttempts: 20,
+} as const;
