@@ -24,12 +24,12 @@
 
 - [x] M1.1 Maze generator and validator in `src/logic/maze/` (WW-03), with tests over 1,000+ seeds and the fallback maze
 - [x] M1.2 Draw the maze, dots and pellets in look B, at 384×464 with whole-number zoom (WW-04, WW-05)
-- [ ] M1.3 Hero grid movement with turn buffering, eating dots, score in the HUD (WW-01)
+- [ ] M1.3 Hero grid movement with turn buffering, from the keyboard and from swipes (WW-01, WW-06); eating dots, score in the HUD
 - [ ] M1.4 Murk chases the hero; lives, death, game over and restart
 - [ ] M1.5 Playwright: boots clean, hero moves and eats dots, Murk catches the hero, through the test hook
 
 **Acceptance criteria:**
-- The owner plays a real chase on staging.
+- The owner plays a real chase on staging, on desktop and on a touchscreen phone or tablet.
 - A run's maze is new each time and the same for the same `?seed=`.
 - No maze has a stretch longer than 10 tiles without a turn-off.
 - CI is green.
@@ -41,12 +41,10 @@
 - [ ] M2.3 Power pellets: scared opponents, eating them for rising points, eyes return to the house
 - [ ] M2.4 Wrap-around tunnel (opponents slow inside)
 - [ ] M2.5 Clearing a maze loads a new one; extra life; high score in localStorage, validated (WW-08)
-- [ ] M2.6 Basic swipe controls (WW-06)
 
 **Acceptance criteria:**
 - The owner can tell the four opponents apart by how they move.
 - A full maze can be cleared and the next one starts.
-- The game plays on a phone in portrait with swipes.
 - CI is green.
 
 ## M3 — Endless and smarter
@@ -64,13 +62,13 @@
 ## M4 — Mobile and polish
 
 - [ ] M4.1 Optional on-screen d-pad
-- [ ] M4.2 Portrait-only prompt for landscape phones, with pause
+- [ ] M4.2 Rotate prompt for phones held landscape, with pause; tablets play either way (WW-05)
 - [ ] M4.3 Title, help and game-over screens (game over shows the run seed)
 - [ ] M4.4 Pause on P or Esc and when the tab loses focus
 - [ ] M4.5 Animations (chomp, opponent bob, death) and a reduced-flash option
 
 **Acceptance criteria:**
-- The owner plays a full run on desktop and on a phone without help.
+- The owner plays a full run on desktop, a phone and a tablet without help.
 - CI is green.
 
 ## M5 — Sound

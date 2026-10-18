@@ -68,9 +68,9 @@ Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the
 
 ### WW-05 Screen and devices
 
-- **Decision:** logical size 384×464 (24×27 tiles of 16 px plus a 16 px HUD above and below), largest whole-number zoom that fits. Phones play in portrait only; landscape shows a "rotate your phone" prompt and pauses.
+- **Decision:** logical size 384×464 (24×27 tiles of 16 px plus a 16 px HUD above and below), largest whole-number zoom that fits. Phones play in portrait only; tablets play either way. The rule is by size, not device type: when the screen is landscape and the game does not fit at zoom 1, but would fit turned to portrait, a "rotate your phone" prompt shows and the game pauses.
 - **Alternatives:** a smaller maze that fits landscape phones; non-integer scaling.
-- **Why:** this size fits a 1080p laptop at 2× and a portrait phone at 1× while keeping pixels sharp.
+- **Why:** this size fits a 1080p laptop at 2× and a portrait phone at 1× while keeping pixels sharp. Tablets (768 px or more on the short side) fit at 1× or larger either way, so they need no prompt.
 
 ### WW-06 Input
 
