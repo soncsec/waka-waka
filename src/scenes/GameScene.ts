@@ -247,9 +247,9 @@ export class GameScene extends Phaser.Scene {
 
   private drawMaze(): void {
     const { maze } = this.state;
-    const art = drawWalls(maze, TILE_SIZE);
     const key = `walls-${this.seed}-${this.level}`;
-    this.addPixelTexture(key, art);
+    // The same seed and level always give the same maze, so a restart reuses the texture.
+    if (!this.textures.exists(key)) this.addPixelTexture(key, drawWalls(maze, TILE_SIZE));
     this.add.image(0, HUD_HEIGHT, key).setOrigin(0, 0);
 
     this.dots = this.add.graphics({ fillStyle: { color: NEON.dot } });

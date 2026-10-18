@@ -61,6 +61,25 @@ test('Murk catches a hero left alone, and a life is lost', async ({ page }) => {
   expect((await snapshot(page)).phase).toBe('ready');
 });
 
+test('game over, then a key starts a new game without errors', async ({ page }) => {
+  test.setTimeout(120_000);
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  await expect
+    .poll(async () => (await snapshot(page)).phase, { timeout: 90_000, intervals: [500] })
+    .toBe('gameover');
+  expect((await snapshot(page)).lives).toBe(0);
+  // A key straight away is ignored, so a last swipe can't skip the game-over screen.
+  await page.keyboard.press('Space');
+  expect((await snapshot(page)).phase).toBe('gameover');
+  await page.waitForTimeout(1200);
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await snapshot(page).catch(() => null))?.phase).toBe('ready');
+  const fresh = await snapshot(page);
+  expect(fresh).toMatchObject({ lives: 3, score: 0, seed: 7 });
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.
