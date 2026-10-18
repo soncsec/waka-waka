@@ -40,16 +40,71 @@ test('boots with no console errors and no third-party requests', async ({ page }
   expect(watched.foreignRequests).toEqual([]);
 });
 
-test('arrow keys move the player and it stays on screen', async ({ page }) => {
-  await openGame(page);
-  const start = (await snapshot(page)).player;
-  await page.keyboard.down('ArrowLeft');
-  await expect.poll(async () => (await snapshot(page)).player.x).toBeLessThan(start.x - 20);
-  await page.waitForTimeout(2000); // long enough to reach the edge
-  await page.keyboard.up('ArrowLeft');
-  const left = (await snapshot(page)).player;
-  expect(left.x).toBeGreaterThan(0);
-  expect(left.y).toBe(start.y);
+test('the hero moves on its own and eats dots for points', async ({ page }) => {
+  await openGame(page, '?seed=7');
+  const start = await snapshot(page);
+  await expect.poll(async () => (await snapshot(page)).score).toBeGreaterThan(0);
+  const later = await snapshot(page);
+  expect(later.dotsLeft).toBeLessThan(start.dotsLeft);
+  expect(later.score % 10).toBe(0);
+});
+
+test('arrow keys and WASD steer the hero', async ({ page }) => {
+  await openGame(page, '?seed=7');
+  // The hero starts heading left; the opposite direction is taken at once.
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('right');
+  await page.keyboard.press('KeyA');
+  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('left');
+});
+
+/** Drags across the canvas with the mouse, like a swipe. */
+async function swipe(page: Page, dx: number, dy: number): Promise<void> {
+  const box = await page.locator('#game canvas').boundingBox();
+  if (!box) throw new Error('no canvas');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 5 });
+  await page.mouse.up();
+}
+
+test('a swipe steers the hero', async ({ page }) => {
+  await openGame(page, '?seed=7');
+  await swipe(page, 80, 0);
+  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('right');
+  await swipe(page, -80, 10);
+  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('left');
+});
+
+test.describe('on a touchscreen', () => {
+  // Like a phone or tablet: the browser reports touch support, so Phaser listens for touch events.
+  test.use({ hasTouch: true });
+
+  test('a touchscreen swipe steers the hero', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'touch events are sent through Chromium DevTools');
+    await openGame(page, '?seed=7');
+    const box = await page.locator('#game canvas').boundingBox();
+    if (!box) throw new Error('no canvas');
+    const cdp = await page.context().newCDPSession(page);
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', px: number): Promise<unknown> =>
+      cdp.send('Input.dispatchTouchEvent', {
+        type,
+        touchPoints: type === 'touchEnd' ? [] : [{ x: px, y }],
+      });
+    await touch('touchStart', x);
+    for (let i = 1; i <= 5; i++) await touch('touchMove', x + i * 16);
+    await touch('touchEnd', x);
+    await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('right');
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.getElementById('game') as HTMLElement).touchAction,
+      ),
+    ).toBe('none');
+  });
 });
 
 test('?seed= in the URL sets the random seed', async ({ page }) => {

@@ -8,14 +8,29 @@ export const HUD_HEIGHT = 16;
 export const GAME_WIDTH = 24 * TILE_SIZE;
 export const GAME_HEIGHT = 27 * TILE_SIZE + 2 * HUD_HEIGHT;
 
-/** The placeholder player: a box moved with the arrow keys or WASD. Replaced by the hero in M1.3. */
-export const PLAYER = {
-  size: 16,
-  color: 0x2de2e6,
-  /** Pixels per second. */
-  speed: 120,
-  /** Starting position as a fraction of the screen height. */
-  startY: 0.85,
+/** Simulation steps per second (WW-01): the game rules always advance in steps of 1/60 s. */
+export const STEP_HZ = 60;
+/** Most simulation steps run in one frame, so a stalled tab doesn't fast-forward. */
+export const MAX_STEPS_PER_FRAME = 5;
+
+/** The hero. Speeds are in tiles per second. */
+export const HERO = {
+  speed: 7.5,
+  startDir: 'left',
+  /** Mouth frames per second while moving. */
+  chompHz: 14,
+} as const;
+
+/** Points. */
+export const SCORE = {
+  dot: 10,
+  pellet: 50,
+} as const;
+
+/** Touch controls (WW-06). */
+export const SWIPE = {
+  /** Distance in game pixels a finger must travel to count as a swipe. */
+  minDistance: 10,
 } as const;
 
 /** Look B, "Neon Arcade" (WW-04). */
@@ -31,6 +46,10 @@ export const NEON = {
   dot: 0xffe8a3,
   pellet: 0xff3df2,
   pelletCore: 0xffffff,
+  hero: 0x2ef2c8,
+  heroShade: 0x13b48f,
+  heroTeeth: 0xffffff,
+  heroEye: 0x0b0820,
   hud: '#2ef2c8',
   hudDim: '#7a6fb8',
 } as const;
