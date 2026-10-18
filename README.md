@@ -19,7 +19,7 @@ Follow `NEW-GAME.md` in [soncsec/games-portal](https://github.com/soncsec/games-
 
 ```sh
 npm ci
-npm run dev          # http://localhost:5177
+npm run dev          # http://localhost:5182
 npm run check        # everything CI runs
 ```
 

@@ -4,8 +4,8 @@ export default defineConfig({
   // Relative base so the build works at games.soncrant.com/<slug>/
   // and on GitHub Pages staging (ADR-004).
   base: './',
-  server: { port: 5177, strictPort: true },
-  preview: { port: 6177, strictPort: true },
+  server: { port: 5182, strictPort: true },
+  preview: { port: 6182, strictPort: true },
   build: {
     target: 'es2022',
     assetsInlineLimit: 0,
