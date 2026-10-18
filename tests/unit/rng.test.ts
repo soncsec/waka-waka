@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRng } from '../../src/logic/rng';
+import { createRng, mixSeed } from '../../src/logic/rng';
 
 describe('createRng', () => {
   it('replays the same sequence for the same seed', () => {
@@ -53,5 +53,19 @@ describe('createRng', () => {
     expect(() => rng.int(0.5, 2)).toThrow(RangeError);
     expect(() => rng.range(2, 1)).toThrow(RangeError);
     expect(() => rng.pick([])).toThrow(RangeError);
+  });
+});
+
+describe('mixSeed', () => {
+  it('is repeatable and gives a 32-bit unsigned integer', () => {
+    expect(mixSeed(7, 3)).toBe(mixSeed(7, 3));
+    const v = mixSeed(0xffffffff, 0xffffffff);
+    expect(Number.isInteger(v) && v >= 0 && v <= 0xffffffff).toBe(true);
+  });
+
+  it('gives different seeds for nearby inputs', () => {
+    const seen = new Set<number>();
+    for (let s = 0; s < 20; s++) for (let n = 0; n < 20; n++) seen.add(mixSeed(s, n));
+    expect(seen.size).toBe(400);
   });
 });
