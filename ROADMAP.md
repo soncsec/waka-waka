@@ -26,7 +26,7 @@
 - [x] M1.2 Draw the maze, dots and pellets in look B, at 384×464 with whole-number zoom (WW-04, WW-05)
 - [x] M1.3 Hero grid movement with turn buffering, from the keyboard and from swipes (WW-01, WW-06); eating dots, score in the HUD
 - [x] M1.4 Murk chases the hero; lives, death, game over and restart
-- [ ] M1.5 Playwright: boots clean, hero moves and eats dots, Murk catches the hero, through the test hook
+- [x] M1.5 Playwright: boots clean, hero moves and eats dots, Murk catches the hero, through the test hook
 - [ ] M1.6 First production release (owner approval): security report (CodeQL, ESLint, `npm audit`, gitleaks, ZAP), a 256×192 card image and `"status": "live"` by PR to `soncsec/games-portal` (the summary stays as it is), `scripts/release.sh deploy`, then the portal release and its production check
 
 **Acceptance criteria:**
