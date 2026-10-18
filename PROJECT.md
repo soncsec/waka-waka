@@ -49,6 +49,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-18 | The four docs are also kept in the Claude Docs doc "Waka-Waka Project Docs" |
 | 2026-10-18 | Playable on desktop and on touchscreen phones and tablets; tablets in either orientation |
 | 2026-10-18 | Swipe controls move from M2.6 into M1.3, so the first playable works on touchscreens |
+| 2026-10-18 | First live on games.soncrant.com after M1 (the first chase), each release with owner approval; the card keeps its final summary |
 
 ## 5. Open questions
 

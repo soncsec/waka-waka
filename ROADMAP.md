@@ -27,9 +27,11 @@
 - [x] M1.3 Hero grid movement with turn buffering, from the keyboard and from swipes (WW-01, WW-06); eating dots, score in the HUD
 - [ ] M1.4 Murk chases the hero; lives, death, game over and restart
 - [ ] M1.5 Playwright: boots clean, hero moves and eats dots, Murk catches the hero, through the test hook
+- [ ] M1.6 First production release (owner approval): security report (CodeQL, ESLint, `npm audit`, gitleaks, ZAP), a 256×192 card image and `"status": "live"` by PR to `soncsec/games-portal` (the summary stays as it is), `scripts/release.sh deploy`, then the portal release and its production check
 
 **Acceptance criteria:**
 - The owner plays a real chase on staging, on desktop and on a touchscreen phone or tablet.
+- After the owner approves the release, the game is live and playable at `games.soncrant.com/waka-waka/` from its portal card.
 - A run's maze is new each time and the same for the same `?seed=`.
 - No maze has a stretch longer than 10 tiles without a turn-off.
 - CI is green.
@@ -84,7 +86,7 @@
 
 - [ ] M6.1 Security report: CodeQL, ESLint, `npm audit`, gitleaks and ZAP results, with 0 critical or high findings
 - [ ] M6.2 Originality review against Pac-Man names, characters, mazes and trade dress
-- [ ] M6.3 Portal card image and status change, by PR to `soncsec/games-portal`
+- [ ] M6.3 Portal card refresh (new image if the look has changed), by PR to `soncsec/games-portal`
 - [ ] M6.4 Production release with `scripts/release.sh deploy`, only after the owner approves it
 
 **Acceptance criteria:**
