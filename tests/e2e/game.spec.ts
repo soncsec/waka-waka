@@ -43,19 +43,50 @@ test('boots with no console errors and no third-party requests', async ({ page }
 test('the hero moves on its own and eats dots for points', async ({ page }) => {
   await openGame(page, '?seed=7');
   const start = await snapshot(page);
-  await expect.poll(async () => (await snapshot(page)).score).toBeGreaterThan(0);
+  // Play starts after the READY pause.
+  await expect
+    .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+    .toBeGreaterThan(0);
   const later = await snapshot(page);
   expect(later.dotsLeft).toBeLessThan(start.dotsLeft);
   expect(later.score % 10).toBe(0);
+});
+
+test('Murk catches a hero left alone, and a life is lost', async ({ page }) => {
+  await openGame(page, '?seed=7');
+  const start = await snapshot(page);
+  expect(start).toMatchObject({ phase: 'ready', lives: 3 });
+  await expect.poll(async () => (await snapshot(page)).phase, { timeout: 30_000 }).toBe('dying');
+  await expect.poll(async () => (await snapshot(page)).lives, { timeout: 10_000 }).toBe(2);
+  expect((await snapshot(page)).phase).toBe('ready');
+});
+
+test('game over, then a key starts a new game without errors', async ({ page }) => {
+  test.setTimeout(120_000);
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  await expect
+    .poll(async () => (await snapshot(page)).phase, { timeout: 90_000, intervals: [500] })
+    .toBe('gameover');
+  expect((await snapshot(page)).lives).toBe(0);
+  // A key straight away is ignored, so a last swipe can't skip the game-over screen.
+  await page.keyboard.press('Space');
+  expect((await snapshot(page)).phase).toBe('gameover');
+  await page.waitForTimeout(1200);
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await snapshot(page).catch(() => null))?.phase).toBe('ready');
+  const fresh = await snapshot(page);
+  expect(fresh).toMatchObject({ lives: 3, score: 0, seed: 7 });
+  expect(watched.errors).toEqual([]);
 });
 
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.
   await page.keyboard.press('ArrowRight');
-  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('right');
+  await expect.poll(async () => (await snapshot(page)).hero.dir, { timeout: 15_000 }).toBe('right');
   await page.keyboard.press('KeyA');
-  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('left');
+  await expect.poll(async () => (await snapshot(page)).hero.dir, { timeout: 15_000 }).toBe('left');
 });
 
 /** Drags across the canvas with the mouse, like a swipe. */
@@ -73,9 +104,9 @@ async function swipe(page: Page, dx: number, dy: number): Promise<void> {
 test('a swipe steers the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   await swipe(page, 80, 0);
-  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('right');
+  await expect.poll(async () => (await snapshot(page)).hero.dir, { timeout: 15_000 }).toBe('right');
   await swipe(page, -80, 10);
-  await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('left');
+  await expect.poll(async () => (await snapshot(page)).hero.dir, { timeout: 15_000 }).toBe('left');
 });
 
 test.describe('on a touchscreen', () => {
@@ -98,7 +129,9 @@ test.describe('on a touchscreen', () => {
     await touch('touchStart', x);
     for (let i = 1; i <= 5; i++) await touch('touchMove', x + i * 16);
     await touch('touchEnd', x);
-    await expect.poll(async () => (await snapshot(page)).hero.dir).toBe('right');
+    await expect
+      .poll(async () => (await snapshot(page)).hero.dir, { timeout: 15_000 })
+      .toBe('right');
     expect(
       await page.evaluate(
         () => getComputedStyle(document.getElementById('game') as HTMLElement).touchAction,

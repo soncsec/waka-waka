@@ -21,6 +21,32 @@ export const HERO = {
   chompHz: 14,
 } as const;
 
+/** Murk, the first opponent (WW-02). Speeds are in tiles per second. */
+export const MURK = {
+  speed: 7.0,
+  startDir: 'left',
+} as const;
+
+/** Round rules. Times are in seconds. */
+export const ROUND = {
+  lives: 3,
+  /** "READY!" pause before play starts, and again after losing a life. */
+  readySeconds: 2,
+  /** Pause after being caught, before the next life or game over. */
+  deathSeconds: 1.5,
+  /** Caught when the hero and an opponent are closer than this, in tiles. */
+  catchDistance: 0.5,
+  /** Game over ignores input this long, so a last swipe doesn't restart at once. */
+  restartDelay: 1,
+} as const;
+
+/** Opponent animation: body frames per second, and the bob up and down. */
+export const OPPONENT_ART = {
+  frames: 6,
+  frameHz: 6,
+  bobHz: 4,
+} as const;
+
 /** Points. */
 export const SCORE = {
   dot: 10,
@@ -50,6 +76,14 @@ export const NEON = {
   heroShade: 0x13b48f,
   heroTeeth: 0xffffff,
   heroEye: 0x0b0820,
+  /** Opponent bodies: Murk, Gnash, Bolt, Wisp. */
+  opponents: [0xff4d7e, 0xff9f1c, 0xffe14d, 0xb28dff],
+  opponentOutline: 0x0b0820,
+  eyeWhite: 0xffffff,
+  pupil: 0x151040,
+  gnashTeeth: 0xfff8e0,
+  ready: '#ffe14d',
+  gameOver: '#ff4d7e',
   hud: '#2ef2c8',
   hudDim: '#7a6fb8',
 } as const;

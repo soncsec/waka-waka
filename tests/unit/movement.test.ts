@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { move, tileOf, type Dir, type Mover, type OpenFn } from '../../src/logic/movement';
+import {
+  chooseToward,
+  gap,
+  move,
+  steer,
+  tileOf,
+  toNextCentre,
+  type Dir,
+  type Mover,
+  type OpenFn,
+} from '../../src/logic/movement';
 
 /** Open test for a small hand-drawn map; `wrapRow` wraps left-right like the tunnel. */
 function openIn(map: string[], wrapRow = -1): OpenFn {
@@ -89,5 +99,67 @@ describe('tileOf', () => {
     expect(tileOf({ x: 2.6, y: 3 }, 5)).toEqual({ x: 3, y: 3 });
     expect(tileOf({ x: 4.6, y: 1 }, 5)).toEqual({ x: 0, y: 1 });
     expect(tileOf({ x: -0.6, y: 1 }, 5)).toEqual({ x: 4, y: 1 });
+  });
+});
+
+describe('chooseToward', () => {
+  it('takes the open direction that ends nearest the target, never reversing', () => {
+    // At (3, 1) heading right: right, down (left is a reverse; up is a wall).
+    expect(chooseToward(at(3, 1, 'right'), { x: 3, y: 3 }, open)).toBe('down');
+    expect(chooseToward(at(3, 1, 'right'), { x: 5, y: 1 }, open)).toBe('right');
+    // The target is behind, but reversing isn't allowed while another way is open.
+    expect(chooseToward(at(3, 1, 'right'), { x: 1, y: 1 }, open)).toBe('down');
+  });
+
+  it('breaks ties in the order up, left, down, right', () => {
+    // At (3, 3) heading up: left and right are equally near a target straight above.
+    expect(chooseToward(at(3, 3, 'down'), { x: 3, y: 0 }, open)).toBe('left');
+  });
+
+  it('reverses only from a dead end', () => {
+    const lane = openIn(['#####', '#...#', '#####']);
+    expect(chooseToward(at(3, 1, 'right'), { x: 9, y: 9 }, lane)).toBe('left');
+  });
+});
+
+describe('steer', () => {
+  it('asks for a direction at every tile centre it passes', () => {
+    const m = at(1, 1, 'right');
+    const asked: string[] = [];
+    steer(m, 2.5, (x) => (asked.push(`${x.x},${x.y}`), 'right'), open, 7);
+    expect(asked).toEqual(['1,1', '2,1', '3,1']);
+    expect(m.x).toBe(3.5);
+  });
+
+  it('chases a target around corners', () => {
+    const m = at(1, 1, 'right');
+    const target = { x: 5, y: 3 };
+    // Opponents never stop, so check that it passes through the target within 7 tiles.
+    const visited = new Set<string>();
+    for (let i = 0; i < 28; i++) {
+      steer(m, 0.25, (x) => chooseToward(x, target, open), open, 7);
+      visited.add(`${m.x},${m.y}`);
+    }
+    expect(visited).toContain('5,3');
+  });
+
+  it('stops against a wall when its choice is blocked', () => {
+    const m = at(5, 1, 'right');
+    steer(m, 1, () => 'right', open, 7);
+    expect(m).toMatchObject({ x: 5, moving: false });
+  });
+});
+
+describe('toNextCentre and gap', () => {
+  it('measures to the next centre ahead', () => {
+    expect(toNextCentre(at(2, 1, 'right'))).toBe(1);
+    expect(toNextCentre(at(2.25, 1, 'right'))).toBe(0.75);
+    expect(toNextCentre(at(2.25, 1, 'left'))).toBe(0.25);
+    expect(toNextCentre(at(1, 2.5, 'up'))).toBe(0.5);
+  });
+
+  it('measures the short way through the tunnel', () => {
+    expect(gap({ x: 0, y: 1 }, { x: 23, y: 1 }, 24)).toBe(1);
+    expect(gap({ x: 2, y: 1 }, { x: 4, y: 3 }, 24)).toBe(4);
   });
 });
