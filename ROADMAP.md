@@ -23,7 +23,7 @@
 ## M1 — First playable
 
 - [x] M1.1 Maze generator and validator in `src/logic/maze/` (WW-03), with tests over 1,000+ seeds and the fallback maze
-- [ ] M1.2 Draw the maze, dots and pellets in look B, at 384×464 with whole-number zoom (WW-04, WW-05)
+- [x] M1.2 Draw the maze, dots and pellets in look B, at 384×464 with whole-number zoom (WW-04, WW-05)
 - [ ] M1.3 Hero grid movement with turn buffering, eating dots, score in the HUD (WW-01)
 - [ ] M1.4 Murk chases the hero; lives, death, game over and restart
 - [ ] M1.5 Playwright: boots clean, hero moves and eats dots, Murk catches the hero, through the test hook

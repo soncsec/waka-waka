@@ -1,18 +1,22 @@
 import Phaser from 'phaser';
 import './style.css';
-import { GAME_HEIGHT, GAME_WIDTH } from './config/tuning';
+import { GAME_HEIGHT, GAME_WIDTH, HUD, NEON } from './config/tuning';
 import { integerZoom } from './logic/scaling';
 import { GameScene } from './scenes/GameScene';
 
 const zoomForWindow = (): number =>
   integerZoom(window.innerWidth, window.innerHeight, GAME_WIDTH, GAME_HEIGHT);
 
+// Canvas text can't wait for a web font, so load the HUD font before the game
+// starts. If it fails, the game still runs with a fallback font.
+await document.fonts.load(`${HUD.fontSize}px ${HUD.font}`).catch(() => undefined);
+
 export const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  backgroundColor: '#05070f',
+  backgroundColor: `#${NEON.background.toString(16).padStart(6, '0')}`,
   pixelArt: true,
   roundPixels: true,
   scale: {

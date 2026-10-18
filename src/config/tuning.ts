@@ -1,8 +1,14 @@
 /** All gameplay numbers live here so they can be tuned in one place. */
-export const GAME_WIDTH = 256;
-export const GAME_HEIGHT = 320;
 
-/** The placeholder player: a box moved with the arrow keys or WASD. */
+/** Size of one maze tile in pixels. */
+export const TILE_SIZE = 16;
+/** Height of the HUD bar above and below the maze. */
+export const HUD_HEIGHT = 16;
+/** Logical game size (WW-05): the 24 x 27 tile maze plus a HUD bar above and below. */
+export const GAME_WIDTH = 24 * TILE_SIZE;
+export const GAME_HEIGHT = 27 * TILE_SIZE + 2 * HUD_HEIGHT;
+
+/** The placeholder player: a box moved with the arrow keys or WASD. Replaced by the hero in M1.3. */
 export const PLAYER = {
   size: 16,
   color: 0x2de2e6,
@@ -12,8 +18,53 @@ export const PLAYER = {
   startY: 0.85,
 } as const;
 
-/** Seed for the random number generator; override with ?seed= in the URL. */
-export const DEFAULT_SEED = 1;
+/** Look B, "Neon Arcade" (WW-04). */
+export const NEON = {
+  background: 0x07051a,
+  /** Inside of thick walls. */
+  wallFill: 0x140a33,
+  /** The bright outline of every wall. */
+  wallLine: 0xff3df2,
+  /** Soft glow between the outline and the corridor. */
+  wallGlow: 0x5a1a7a,
+  door: 0xffb3f5,
+  dot: 0xffe8a3,
+  pellet: 0xff3df2,
+  pelletCore: 0xffffff,
+  hud: '#2ef2c8',
+  hudDim: '#7a6fb8',
+} as const;
+
+/**
+ * Wall drawing, in pixels from the nearest corridor pixel (WW-04).
+ * Pixels nearer than `glowFrom` are corridor, then glow, then the outline at
+ * `lineAt`, then glow again until `fillFrom`, then fill. Corners round off at `radius`.
+ */
+export const WALL_ART = {
+  radius: 7,
+  glowFrom: 3.6,
+  lineAt: 5,
+  fillFrom: 6.5,
+  /** Height of the door bar, centred in the door tile. */
+  doorThickness: 2,
+} as const;
+
+/** Dots and power pellets. */
+export const PICKUP_ART = {
+  dotSize: 2,
+  /** Power pellet size in pixels (a rounded square with a bright core). */
+  pelletSize: 10,
+  /** Blinks per second; held steady when the player prefers reduced motion. */
+  pelletBlinkHz: 2,
+} as const;
+
+/** HUD text: Press Start 2P drawn at 8 px, its native size. */
+export const HUD = {
+  font: '"Press Start 2P"',
+  fontSize: 8,
+  /** Gap from the screen edge in pixels. */
+  margin: 4,
+} as const;
 
 /**
  * Maze generation (WW-03). The maze is a lattice of corridor nodes `pitch` tiles
