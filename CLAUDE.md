@@ -15,7 +15,7 @@ Read `PROJECT.md` (scope), `ARCHITECTURE.md` (decisions), and `ROADMAP.md` (curr
 - `legacy/` (the art pack) is read-only. It is a link to the shared `~/dev/games/_assets/legacy/`. Copy what you need into `public/assets/`.
 - Changes another repo needs (for example, this game's portal card) go through a PR or issue on that repo.
 - On the production server, this game may only write to its own release folder and link: `/srv/games-releases/waka-waka/` and `/var/www/html/soncrant.com/pub/games/waka-waka` (enforced by `scripts/release-remote.sh`).
-- Local dev server port: **5177**. Playwright's test server uses **6178**. Other games use other ports.
+- Local dev server port: **5182**. Playwright's test server uses **6183**. Other games use other ports.
 - Other games' sessions share this machine. Stop only processes you started, by PID or by your own port (e.g. the pid listening on your Playwright port). Never stop processes by name (`pkill -f vite`, `pkill -f "vite preview"`, `killall node`): that kills other sessions' servers mid-run.
 - This game's portal card is its own file in the portal repo, `games/waka-waka.json`. Change it only by PR to `soncsec/games-portal`.
 
