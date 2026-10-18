@@ -55,6 +55,8 @@ export const ROUND = {
   readySeconds: 2,
   /** Pause after being caught, before the next life or game over. */
   deathSeconds: 1.5,
+  /** "MAZE CLEARED!" pause before the next maze. */
+  clearedSeconds: 2,
   /** Caught when the hero and an opponent are closer than this, in tiles. */
   catchDistance: 0.5,
   /** Game over ignores input this long, so a last swipe doesn't restart at once. */

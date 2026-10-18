@@ -16,7 +16,16 @@ import {
   SWIPE,
   TILE_SIZE,
 } from '../config/tuning';
-import { createGame, setWanted, stepGame, type GameState, type Phase } from '../logic/game';
+import {
+  clearMaze,
+  createGame,
+  nextMazeDue,
+  setWanted,
+  stepGame,
+  type Carry,
+  type GameState,
+  type Phase,
+} from '../logic/game';
 import { buildMaze, TILE } from '../logic/maze';
 import { DIRS, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
@@ -34,6 +43,8 @@ export interface GameSnapshot {
   lives: number;
   phase: Phase;
   dotsLeft: number;
+  /** The centre message (READY! or MAZE CLEARED!) while it shows, else null. */
+  message: string | null;
   maze: { grid: readonly string[]; usedFallback: boolean };
   /** Logical canvas size and the current whole-number zoom. */
   screen: { width: number; height: number; zoom: number };
@@ -55,6 +66,16 @@ const KEY_DIRS: Readonly<Record<string, Dir>> = {
   KeyD: 'right',
 };
 
+/** Passed by `scene.restart` from one maze to the next; empty for a new game. */
+interface SceneData {
+  seed?: number;
+  level?: number;
+  carry?: Carry;
+}
+
+/** A 0xrrggbb colour as the CSS string Phaser text styles want. */
+const cssColour = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
+
 /** Screen centre of a tile position. */
 const toScreen = (p: Point): Point => ({
   x: p.x * TILE_SIZE + TILE_SIZE / 2,
@@ -65,6 +86,7 @@ const toScreen = (p: Point): Point => ({
 export class GameScene extends Phaser.Scene {
   private seed = 0;
   private level = 1;
+  private carry: Carry | undefined;
   private usedFallback = false;
   private state!: GameState;
   private dots!: Phaser.GameObjects.Graphics;
@@ -74,6 +96,7 @@ export class GameScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private message!: Phaser.GameObjects.Text;
+  private hint!: Phaser.GameObjects.Text;
   private gameOverPanel!: Phaser.GameObjects.Container;
   private swipeStart: Point | null = null;
   /** Unsimulated time, in seconds (fixed-step loop, WW-01). */
@@ -84,6 +107,12 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
+  init(data: SceneData): void {
+    this.seed = data.seed ?? runSeed();
+    this.level = data.level ?? 1;
+    this.carry = data.carry;
+  }
+
   create(): void {
     // The scene object is reused when a new game starts, so reset everything here.
     this.pellets = new Map();
@@ -91,10 +120,9 @@ export class GameScene extends Phaser.Scene {
     this.lifeIcons = [];
     this.swipeStart = null;
     this.pending = 0;
-    this.seed = runSeed();
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
-    this.state = createGame(built.maze);
+    this.state = createGame(built.maze, this.carry);
 
     this.makeTextures();
     this.drawMaze();
@@ -118,6 +146,12 @@ export class GameScene extends Phaser.Scene {
       steps++;
     }
     if (steps === MAX_STEPS_PER_FRAME) this.pending = 0;
+
+    if (nextMazeDue(this.state)) {
+      const { score, lives } = this.state;
+      this.scene.restart({ seed: this.seed, level: this.level + 1, carry: { score, lives } });
+      return;
+    }
 
     this.scoreText.setText(String(this.state.score).padStart(6, '0'));
     this.placeActors(time);
@@ -145,9 +179,19 @@ export class GameScene extends Phaser.Scene {
       lives: this.state.lives,
       phase: this.state.phase,
       dotsLeft: this.state.dotsLeft,
+      message: this.message.visible ? this.message.text : null,
       maze: { grid: this.state.maze.grid, usedFallback: this.usedFallback },
       screen: { width: GAME_WIDTH, height: GAME_HEIGHT, zoom: this.scale.zoom },
     };
+  }
+
+  /** Test hook: clears the maze at once. */
+  skipMaze(): void {
+    clearMaze(this.state);
+    this.redrawDots();
+    for (const p of this.pellets.values()) p.destroy();
+    this.pellets.clear();
+    this.showPhase();
   }
 
   private setUpInput(): void {
@@ -195,7 +239,7 @@ export class GameScene extends Phaser.Scene {
   /** At game over, after a short delay, any key or tap starts a new game. */
   private restartIfOver(): boolean {
     if (this.state.phase !== 'gameover') return false;
-    if (this.state.phaseTime >= ROUND.restartDelay) this.scene.restart();
+    if (this.state.phaseTime >= ROUND.restartDelay) this.scene.restart({});
     return true;
   }
 
@@ -227,7 +271,10 @@ export class GameScene extends Phaser.Scene {
     const { phase, lives } = this.state;
     // Lives in reserve: the one being played isn't shown.
     this.lifeIcons.forEach((icon, i) => icon.setVisible(i < lives - 1));
-    this.message.setVisible(phase === 'ready');
+    this.message.setVisible(phase === 'ready' || phase === 'cleared');
+    this.message.setText(phase === 'cleared' ? 'MAZE CLEARED!' : 'READY!');
+    // The controls hint shows with READY! on the first maze only.
+    this.hint.setVisible(phase === 'ready' && this.level === 1);
     this.gameOverPanel.setVisible(phase === 'gameover');
   }
 
@@ -237,18 +284,26 @@ export class GameScene extends Phaser.Scene {
     // READY! sits on the corridor just below the ghost house.
     const below = toScreen({ x: 0, y: house.y1 + 1 });
     this.message = this.add.text(GAME_WIDTH / 2, below.y, 'READY!', style).setOrigin(0.5);
+    const dim = { ...style, color: NEON.hudDim };
+    // On a dark strip, so it reads over the dots.
+    const strip = { ...dim, backgroundColor: cssColour(NEON.background), padding: { x: 4, y: 2 } };
+    this.hint = this.add
+      .text(GAME_WIDTH / 2, below.y + TILE_SIZE, 'ARROWS, WASD OR SWIPE', strip)
+      .setOrigin(0.5);
 
     const middle = toScreen({ x: 0, y: (house.y0 + house.y1) / 2 });
     const panel = this.add
       .rectangle(0, 0, GAME_WIDTH - 4 * TILE_SIZE, 4 * TILE_SIZE, NEON.background, 0.92)
       .setStrokeStyle(2, NEON.wallLine);
     const title = this.add
-      .text(0, -10, 'GAME OVER', { ...style, color: NEON.gameOver })
+      .text(0, -16, 'GAME OVER', { ...style, color: NEON.gameOver })
       .setOrigin(0.5);
+    // The run seed, so a player can report or replay this run with ?seed=.
+    const seed = this.add.text(0, 0, `SEED ${this.seed}`, dim).setOrigin(0.5);
     const hint = this.add
-      .text(0, 12, 'PRESS A KEY OR TAP', { ...style, color: NEON.hud })
+      .text(0, 16, 'PRESS A KEY OR TAP', { ...style, color: NEON.hud })
       .setOrigin(0.5);
-    this.gameOverPanel = this.add.container(GAME_WIDTH / 2, middle.y, [panel, title, hint]);
+    this.gameOverPanel = this.add.container(GAME_WIDTH / 2, middle.y, [panel, title, seed, hint]);
   }
 
   private removePickup(x: number, y: number, kind: 'dot' | 'pellet'): void {

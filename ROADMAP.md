@@ -38,20 +38,24 @@
 
 ## M2 — Full classic game
 
-- [ ] M2.1 All four opponents with their targets; the ghost house and release order (WW-02)
+- [x] M2.0 Live quick wins from the 2026-10-18 product review: a cleared maze shows MAZE CLEARED and loads a new one, a controls hint under READY!, and the run seed on the game-over screen
+- [ ] M2.1 All four opponents with their targets; the ghost house and release order (WW-02); the difficulty table from WW-07 with its first row
 - [ ] M2.2 Scatter and chase scheduler with reversals
 - [ ] M2.3 Power pellets: scared opponents, eating them for rising points, eyes return to the house
 - [ ] M2.4 Wrap-around tunnel (opponents slow inside)
-- [ ] M2.5 Clearing a maze loads a new one; extra life; high score in localStorage, validated (WW-08)
+- [ ] M2.5 Extra life; high score in localStorage, validated (WW-08)
+- [ ] M2.6 Owner playtest on desktop and on a phone or tablet; the notes become a tuning PR
+- [ ] M2.7 Originality review against Pac-Man names (including the game's own name), characters, mazes and trade dress
 
 **Acceptance criteria:**
 - The owner can tell the four opponents apart by how they move.
 - A full maze can be cleared and the next one starts.
+- The next production release happens after M2.3 at the earliest, so the live game never has four opponents without scatter and working pellets.
 - CI is green.
 
 ## M3 — Endless and smarter
 
-- [ ] M3.1 Difficulty table in `tuning.ts`, levelling off around maze 20 (WW-07)
+- [ ] M3.1 Fill the difficulty table rows up to the plateau around maze 20 (WW-07)
 - [ ] M3.2 Special moves: Frenzy (Murk), Dash (Bolt), Lunge (Gnash), Phase (Wisp), each with a visible tell
 - [ ] M3.3 Bonus item, twice per maze
 - [ ] M3.4 Balance pass from the owner's playtest notes
@@ -65,9 +69,10 @@
 
 - [ ] M4.1 Optional on-screen d-pad
 - [ ] M4.2 Rotate prompt for phones held landscape, with pause; tablets play either way (WW-05)
-- [ ] M4.3 Title, help and game-over screens (game over shows the run seed)
+- [ ] M4.3 Title, help and game-over screens
 - [ ] M4.4 Pause on P or Esc and when the tab loses focus
 - [ ] M4.5 Animations (chomp, opponent bob, death) and a reduced-flash option
+- [ ] M4.6 HUD readability on a real phone at zoom 1 (the font is 8 px); adjust the font size or layout if needed
 
 **Acceptance criteria:**
 - The owner plays a full run on desktop, a phone and a tablet without help.
@@ -85,7 +90,7 @@
 ## M6 — Release
 
 - [ ] M6.1 Security report: CodeQL, ESLint, `npm audit`, gitleaks and ZAP results, with 0 critical or high findings
-- [ ] M6.2 Originality review against Pac-Man names, characters, mazes and trade dress
+- [ ] M6.2 Originality re-check of anything changed since M2.7
 - [ ] M6.3 Portal card refresh (new image if the look has changed), by PR to `soncsec/games-portal`
 - [ ] M6.4 Production release with `scripts/release.sh deploy`, only after the owner approves it
 
