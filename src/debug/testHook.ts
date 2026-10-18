@@ -10,6 +10,8 @@ export interface TestHook {
   /** The key of the scene that is running, or null while loading. */
   scene(): string | null;
   snapshot(): GameSnapshot | null;
+  /** Eats every dot left, so the maze is cleared at once. */
+  skipMaze(): void;
 }
 
 declare global {
@@ -24,6 +26,10 @@ export function installTestHook(game: Phaser.Game): void {
     snapshot: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
       return s && game.scene.isActive('Game') ? s.snapshot() : null;
+    },
+    skipMaze: () => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      if (s && game.scene.isActive('Game')) s.skipMaze();
     },
   };
 }

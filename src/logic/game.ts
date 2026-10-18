@@ -16,7 +16,7 @@ import {
  * - playing: everyone moves.
  * - dying: the hero was caught; a pause before the next life.
  * - gameover: no lives left.
- * - cleared: every dot and pellet eaten (the next maze arrives in M2.5).
+ * - cleared: every dot and pellet eaten; after a pause the scene loads the next maze.
  */
 export type Phase = 'ready' | 'playing' | 'dying' | 'gameover' | 'cleared';
 
@@ -47,7 +47,13 @@ export function murkStart(maze: Maze): Point {
   return { x: maze.start.x, y: maze.house.y0 - 1 };
 }
 
-export function createGame(maze: Maze): GameState {
+/** What a player keeps from one maze to the next. */
+export interface Carry {
+  score: number;
+  lives: number;
+}
+
+export function createGame(maze: Maze, carry?: Carry): GameState {
   const tiles = maze.grid.map((row) => row.split(''));
   const dotsLeft = tiles.flat().filter((c) => c === TILE.dot || c === TILE.pellet).length;
   const state: GameState = {
@@ -56,8 +62,8 @@ export function createGame(maze: Maze): GameState {
     hero: { x: 0, y: 0, dir: HERO.startDir, moving: true },
     murk: { x: 0, y: 0, dir: MURK.startDir, moving: true },
     wanted: null,
-    score: 0,
-    lives: ROUND.lives,
+    score: carry?.score ?? 0,
+    lives: carry?.lives ?? ROUND.lives,
     dotsLeft,
     phase: 'ready',
     phaseTime: 0,
@@ -87,6 +93,22 @@ export function tileAt(state: GameState, x: number, y: number): string | undefin
 
 export function setWanted(state: GameState, dir: Dir | null): void {
   state.wanted = dir;
+}
+
+/** Eats every dot and pellet left, so the maze counts as cleared (used by the e2e hook). */
+export function clearMaze(state: GameState): void {
+  for (const row of state.tiles) {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === TILE.dot || row[x] === TILE.pellet) row[x] = TILE.empty;
+    }
+  }
+  state.dotsLeft = 0;
+  enter(state, 'cleared');
+}
+
+/** True once the "MAZE CLEARED!" pause is over and the next maze should start. */
+export function nextMazeDue(state: GameState): boolean {
+  return state.phase === 'cleared' && state.phaseTime >= ROUND.clearedSeconds;
 }
 
 /** Advances the game by `dt` seconds. Returns the dots and pellets eaten. */

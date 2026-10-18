@@ -38,7 +38,7 @@
 
 ## M2 — Full classic game
 
-- [ ] M2.0 Live quick wins from the 2026-10-18 product review: a cleared maze shows MAZE CLEARED and loads a new one, a controls hint under READY!, and the run seed on the game-over screen
+- [x] M2.0 Live quick wins from the 2026-10-18 product review: a cleared maze shows MAZE CLEARED and loads a new one, a controls hint under READY!, and the run seed on the game-over screen
 - [ ] M2.1 All four opponents with their targets; the ghost house and release order (WW-02); the difficulty table from WW-07 with its first row
 - [ ] M2.2 Scatter and chase scheduler with reversals
 - [ ] M2.3 Power pellets: scared opponents, eating them for rising points, eyes return to the house
