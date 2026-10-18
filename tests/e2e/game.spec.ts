@@ -56,3 +56,39 @@ test('?seed= in the URL sets the random seed', async ({ page }) => {
   await openGame(page, '?seed=42');
   expect((await snapshot(page)).seed).toBe(42);
 });
+
+test('draws a 384 x 464 maze at a whole-number zoom', async ({ page }) => {
+  await openGame(page, '?seed=7');
+  const snap = await snapshot(page);
+  expect(snap.screen).toMatchObject({ width: 384, height: 464 });
+  expect(Number.isInteger(snap.screen.zoom) && snap.screen.zoom >= 1).toBe(true);
+  expect(snap.level).toBe(1);
+  expect(snap.maze.grid).toHaveLength(27);
+  expect(snap.maze.usedFallback).toBe(false);
+  const box = await page.locator('#game canvas').boundingBox();
+  expect(box?.width).toBe(384 * snap.screen.zoom);
+  expect(box?.height).toBe(464 * snap.screen.zoom);
+});
+
+test('the same ?seed= gives the same maze; no seed gives a new maze each run', async ({ page }) => {
+  await openGame(page, '?seed=2026');
+  const first = (await snapshot(page)).maze.grid;
+  await openGame(page, '?seed=2026');
+  expect((await snapshot(page)).maze.grid).toEqual(first);
+
+  await openGame(page);
+  const a = await snapshot(page);
+  await openGame(page);
+  const b = await snapshot(page);
+  expect(a.seed).not.toBe(b.seed);
+  expect(a.maze.grid).not.toEqual(b.maze.grid);
+});
+
+test('an invalid ?seed= is ignored and a random seed is used', async ({ page }) => {
+  for (const bad of ['-1', '1e5', '99999999999', 'abc', '%3Cscript%3E']) {
+    await openGame(page, `?seed=${bad}`);
+    const first = (await snapshot(page)).seed;
+    await openGame(page, `?seed=${bad}`);
+    expect((await snapshot(page)).seed, bad).not.toBe(first);
+  }
+});
