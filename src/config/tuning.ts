@@ -13,19 +13,49 @@ export const STEP_HZ = 60;
 /** Most simulation steps run in one frame, so a stalled tab doesn't fast-forward. */
 export const MAX_STEPS_PER_FRAME = 5;
 
-/** The hero. Speeds are in tiles per second. */
+/** The hero. Its speed is in the difficulty table below. */
 export const HERO = {
-  speed: 7.5,
   startDir: 'left',
   /** Mouth frames per second while moving. */
   chompHz: 14,
 } as const;
 
-/** Murk, the first opponent (WW-02). Speeds are in tiles per second. */
-export const MURK = {
-  speed: 7.0,
+/** The opponents (WW-02). Their maze speed is in the difficulty table; distances are in tiles. */
+export const OPPONENTS = {
+  /** Speed inside the ghost house, waiting and leaving. */
+  houseSpeed: 3.5,
+  /** Direction an opponent takes when it comes out of the door. */
   startDir: 'left',
+  /** Gnash aims this far ahead of the hero. */
+  gnashAhead: 4,
+  /** Bolt pivots on the point this far ahead of the hero. */
+  boltAhead: 2,
+  /** Wisp gives up the chase when closer than this. */
+  wispShyDistance: 8,
+  /** Bolt and Wisp wait this far either side of the house centre. */
+  houseSpacing: 2,
+  /** How far waiting opponents bob up and down from the house centre. */
+  bob: 0.5,
 } as const;
+
+/**
+ * Difficulty table (WW-07): one row per maze. Beyond the last row, the last row
+ * repeats. M3.1 fills the rows up to the plateau around maze 20.
+ */
+export interface LevelRow {
+  /** Hero speed in tiles per second. */
+  heroSpeed: number;
+  /** Opponent speed out in the maze, in tiles per second. */
+  opponentSpeed: number;
+  /** Dots eaten this life before each opponent may leave the house, in cast order. */
+  releaseDots: readonly [number, number, number, number];
+  /** Any waiting opponent leaves if the hero goes this long without eating, in seconds. */
+  releaseIdleSeconds: number;
+}
+
+export const LEVELS: readonly LevelRow[] = [
+  { heroSpeed: 7.5, opponentSpeed: 7.0, releaseDots: [0, 0, 30, 60], releaseIdleSeconds: 4 },
+];
 
 /** Round rules. Times are in seconds. */
 export const ROUND = {

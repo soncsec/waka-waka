@@ -28,6 +28,7 @@ import {
 } from '../logic/game';
 import { buildMaze, TILE } from '../logic/maze';
 import { DIRS, type Dir, type Point } from '../logic/movement';
+import type { OpponentName, OpponentState } from '../logic/opponents';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
 
@@ -36,7 +37,7 @@ export interface GameSnapshot {
   seed: number;
   level: number;
   hero: { x: number; y: number; dir: Dir; moving: boolean };
-  murk: { x: number; y: number; dir: Dir };
+  opponents: { name: OpponentName; x: number; y: number; dir: Dir; state: OpponentState }[];
   wanted: Dir | null;
   score: number;
   lives: number;
@@ -51,7 +52,8 @@ export interface GameSnapshot {
 
 const PELLET_TEXTURE = 'pellet';
 const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
-const murkTexture = (dir: Dir, frame: number): string => `murk-${dir}-${frame}`;
+const opponentTexture = (index: number, dir: Dir, frame: number): string =>
+  `opponent-${index}-${dir}-${frame}`;
 
 const KEY_DIRS: Readonly<Record<string, Dir>> = {
   ArrowUp: 'up',
@@ -80,7 +82,7 @@ const toScreen = (p: Point): Point => ({
   y: HUD_HEIGHT + p.y * TILE_SIZE + TILE_SIZE / 2,
 });
 
-/** One maze being played: the hero eats dots while Murk gives chase (M1.4). */
+/** One maze being played: the hero eats dots while the four opponents give chase. */
 export class GameScene extends Phaser.Scene {
   private seed = 0;
   private level = 1;
@@ -90,7 +92,7 @@ export class GameScene extends Phaser.Scene {
   private dots!: Phaser.GameObjects.Graphics;
   private pellets = new Map<string, Phaser.GameObjects.Image>();
   private hero!: Phaser.GameObjects.Image;
-  private murk!: Phaser.GameObjects.Image;
+  private opponents: Phaser.GameObjects.Image[] = [];
   private scoreText!: Phaser.GameObjects.Text;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private message!: Phaser.GameObjects.Text;
@@ -114,17 +116,20 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     // The scene object is reused when a new game starts, so reset everything here.
     this.pellets = new Map();
+    this.opponents = [];
     this.lifeIcons = [];
     this.swipeStart = null;
     this.pending = 0;
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
-    this.state = createGame(built.maze, this.carry);
+    this.state = createGame(built.maze, { level: this.level, carry: this.carry });
 
     this.makeTextures();
     this.drawMaze();
     this.drawHud();
-    this.murk = this.add.image(0, 0, murkTexture(this.state.murk.dir, 0));
+    this.opponents = this.state.opponents.map((o, i) =>
+      this.add.image(0, 0, opponentTexture(i, o.dir, 0)),
+    );
     this.hero = this.add.image(0, 0, heroTexture(this.state.hero.dir, 1));
     this.drawMessages();
     this.placeActors(0);
@@ -162,7 +167,13 @@ export class GameScene extends Phaser.Scene {
       seed: this.seed,
       level: this.level,
       hero: { x: hero.x, y: hero.y, dir: hero.dir, moving: hero.moving },
-      murk: { x: this.state.murk.x, y: this.state.murk.y, dir: this.state.murk.dir },
+      opponents: this.state.opponents.map(({ name, x, y, dir, state }) => ({
+        name,
+        x,
+        y,
+        dir,
+        state,
+      })),
       wanted: this.state.wanted,
       score: this.state.score,
       lives: this.state.lives,
@@ -233,7 +244,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private placeActors(time: number): void {
-    const { hero, murk, phase } = this.state;
+    const { hero, opponents, phase } = this.state;
     const chomping = phase === 'playing' && hero.moving;
     const frame = chomping
       ? Math.floor((time / 1000) * HERO.chompHz) % HERO_MOUTH_FRAMES.length
@@ -244,11 +255,17 @@ export class GameScene extends Phaser.Scene {
     this.hero.setVisible(phase !== 'dying' || Math.floor(time / 100) % 2 === 0);
 
     const seconds = time / 1000;
-    const m = toScreen(murk);
     const bob = Math.floor(seconds * OPPONENT_ART.bobHz) % 2;
     const mFrame = Math.floor(seconds * OPPONENT_ART.frameHz) % OPPONENT_ART.frames;
-    this.murk.setPosition(m.x, m.y + bob).setTexture(murkTexture(murk.dir, mFrame));
-    this.murk.setVisible(phase !== 'gameover');
+    opponents.forEach((o, i) => {
+      const img = this.opponents[i];
+      if (!img) return;
+      const p = toScreen(o);
+      // Only opponents out in the maze bob; the others already move up and down.
+      const lift = o.state === 'out' ? bob : 0;
+      img.setPosition(p.x, p.y + lift).setTexture(opponentTexture(i, o.dir, mFrame));
+      img.setVisible(phase !== 'gameover');
+    });
   }
 
   /** Life icons, the READY message and the game-over panel follow the phase. */
@@ -340,8 +357,11 @@ export class GameScene extends Phaser.Scene {
     }
     for (const dir of DIRS) {
       for (let frame = 0; frame < OPPONENT_ART.frames; frame++) {
-        const key = murkTexture(dir, frame);
-        if (!this.textures.exists(key)) this.addPixelTexture(key, opponentPixels(0, dir, frame));
+        for (const who of [0, 1, 2, 3] as const) {
+          const key = opponentTexture(who, dir, frame);
+          if (!this.textures.exists(key))
+            this.addPixelTexture(key, opponentPixels(who, dir, frame));
+        }
       }
     }
     if (this.textures.exists(PELLET_TEXTURE)) return;

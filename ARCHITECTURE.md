@@ -26,8 +26,9 @@ src/
 ├── logic/             game rules: plain TypeScript, no Phaser imports (ESLint enforces), unit tested
 │   ├── maze/          generator, validator, fallback maze
 │   ├── movement       grid movement and turn buffering
-│   ├── ghosts         targeting, mode scheduler, special moves
-│   └── game           dots, score, lives, levels, difficulty lookup
+│   ├── opponents      the cast, chase targets, ghost house and release order (mode scheduler and special moves later)
+│   ├── difficulty     the difficulty row for a maze number (WW-07)
+│   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
 ├── scenes/            Phaser scenes: thin, call into logic/
 └── debug/testHook.ts  window.__game for Playwright (e2e build only)
