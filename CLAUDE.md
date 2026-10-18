@@ -1,4 +1,4 @@
-# CLAUDE.md — Development Rules for Game Template
+# CLAUDE.md — Development Rules for Waka-Waka
 
 > From `soncsec/game-template`. The workflow, quality and security rules were approved by the owner on 2026-10-17 for Star Destroyer and apply to every Soncrant Arcade game.
 
@@ -14,10 +14,10 @@ Read `PROJECT.md` (scope), `ARCHITECTURE.md` (decisions), and `ROADMAP.md` (curr
 - Change files only inside this repo. Never edit another game's folder, the portal repo, or shared assets.
 - `legacy/` (the art pack) is read-only. It is a link to the shared `~/dev/games/_assets/legacy/`. Copy what you need into `public/assets/`.
 - Changes another repo needs (for example, this game's portal card) go through a PR or issue on that repo.
-- On the production server, this game may only write to its own release folder and link: `/srv/games-releases/game-template/` and `/var/www/html/soncrant.com/pub/games/game-template` (enforced by `scripts/release-remote.sh`).
-- Local dev server port: **__DEV_PORT__**. Playwright's test server uses **__E2E_PORT__**. Other games use other ports.
+- On the production server, this game may only write to its own release folder and link: `/srv/games-releases/waka-waka/` and `/var/www/html/soncrant.com/pub/games/waka-waka` (enforced by `scripts/release-remote.sh`).
+- Local dev server port: **5177**. Playwright's test server uses **6178**. Other games use other ports.
 - Other games' sessions share this machine. Stop only processes you started, by PID or by your own port (e.g. the pid listening on your Playwright port). Never stop processes by name (`pkill -f vite`, `pkill -f "vite preview"`, `killall node`): that kills other sessions' servers mid-run.
-- This game's portal card is its own file in the portal repo, `games/game-template.json`. Change it only by PR to `soncsec/games-portal`.
+- This game's portal card is its own file in the portal repo, `games/waka-waka.json`. Change it only by PR to `soncsec/games-portal`.
 
 ## Always ask the owner before
 

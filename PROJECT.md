@@ -1,4 +1,4 @@
-# Game Template — Project
+# Waka-Waka — Project
 
 > **Status:** DRAFT. Fill this in with the owner, then get it approved before building gameplay.
 
@@ -27,7 +27,7 @@ Out of scope: …
 - Browser only, single player, desktop browsers (current Chrome, Firefox, Safari, Edge).
 - No accounts, payments, analytics, cookies or third-party requests. localStorage holds only the high score.
 - Art keeps its native pixel style; whole-number scaling only.
-- Served at `games.soncrant.com/game-template/` over HTTP (ADR-010), behind the security headers in the portal's Apache config.
+- Served at `games.soncrant.com/waka-waka/` over HTTP (ADR-010), behind the security headers in the portal's Apache config.
 
 ## 4. Decisions confirmed by the owner
 
