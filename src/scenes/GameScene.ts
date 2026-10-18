@@ -1,48 +1,72 @@
 import Phaser from 'phaser';
-import { drawWalls } from '../art/walls';
+import { HERO_MOUTH_FRAMES, heroPixels } from '../art/sprites';
+import { drawWalls, type Pixels } from '../art/walls';
 import {
   GAME_HEIGHT,
   GAME_WIDTH,
+  HERO,
   HUD,
   HUD_HEIGHT,
+  MAX_STEPS_PER_FRAME,
   NEON,
   PICKUP_ART,
-  PLAYER,
+  STEP_HZ,
+  SWIPE,
   TILE_SIZE,
 } from '../config/tuning';
-import { buildMaze, TILE, type Maze } from '../logic/maze';
-import { screenBounds, step, type Axis, type Point } from '../logic/movement';
+import { createGame, setWanted, stepGame, type GameState } from '../logic/game';
+import { buildMaze, TILE } from '../logic/maze';
+import { DIRS, type Dir, type Point } from '../logic/movement';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
+import { swipeDirection } from '../logic/swipe';
 
 /** Read-only view of the game state, used by the e2e test hook. */
 export interface GameSnapshot {
-  player: Point;
   seed: number;
   level: number;
+  hero: { x: number; y: number; dir: Dir; moving: boolean };
+  wanted: Dir | null;
+  score: number;
+  dotsLeft: number;
   maze: { grid: readonly string[]; usedFallback: boolean };
   /** Logical canvas size and the current whole-number zoom. */
   screen: { width: number; height: number; zoom: number };
 }
 
-type Keys = Record<
-  'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd',
-  Phaser.Input.Keyboard.Key
->;
-
 const PELLET_TEXTURE = 'pellet';
+const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
 
-/** Draws the current maze in look B. The hero, opponents and scoring arrive in M1.3 and M1.4. */
+const KEY_DIRS: Readonly<Record<string, Dir>> = {
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  KeyW: 'up',
+  KeyS: 'down',
+  KeyA: 'left',
+  KeyD: 'right',
+};
+
+/** Screen centre of a tile position. */
+const toScreen = (p: Point): Point => ({
+  x: p.x * TILE_SIZE + TILE_SIZE / 2,
+  y: HUD_HEIGHT + p.y * TILE_SIZE + TILE_SIZE / 2,
+});
+
+/** One maze being played: the hero moves on the grid and eats dots (M1.3). */
 export class GameScene extends Phaser.Scene {
-  private player!: Phaser.GameObjects.Rectangle;
-  private pos: Point = { x: 0, y: 0 };
-  private keys!: Keys;
   private seed = 0;
   private level = 1;
-  private maze!: Maze;
   private usedFallback = false;
-  private pellets: Phaser.GameObjects.Image[] = [];
+  private state!: GameState;
+  private dots!: Phaser.GameObjects.Graphics;
+  private readonly pellets = new Map<string, Phaser.GameObjects.Image>();
+  private hero!: Phaser.GameObjects.Image;
+  private scoreText!: Phaser.GameObjects.Text;
+  private swipeStart: Point | null = null;
+  /** Unsimulated time, in seconds (fixed-step loop, WW-01). */
+  private pending = 0;
   private readonly steadyPellets = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  private readonly bounds = screenBounds(GAME_WIDTH, GAME_HEIGHT, PLAYER.size);
 
   constructor() {
     super('Game');
@@ -50,93 +74,138 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.seed = runSeed();
-    this.loadMaze(this.level);
+    const built = buildMaze(this.seed, this.level);
+    this.usedFallback = built.usedFallback;
+    this.state = createGame(built.maze);
+
+    this.makeTextures();
+    this.drawMaze();
     this.drawHud();
-
-    this.pos = { x: GAME_WIDTH / 2, y: GAME_HEIGHT * PLAYER.startY };
-    this.player = this.add.rectangle(
-      this.pos.x,
-      this.pos.y,
-      PLAYER.size,
-      PLAYER.size,
-      PLAYER.color,
-    );
-
-    const kb = this.input.keyboard;
-    if (!kb) throw new Error('keyboard input is not available');
-    this.keys = kb.addKeys({
-      up: 'UP',
-      down: 'DOWN',
-      left: 'LEFT',
-      right: 'RIGHT',
-      w: 'W',
-      a: 'A',
-      s: 'S',
-      d: 'D',
-    }) as Keys;
+    this.hero = this.add.image(0, 0, heroTexture(this.state.hero.dir, 1));
+    this.placeHero(0);
+    this.setUpInput();
   }
 
   override update(time: number, deltaMs: number): void {
-    this.pos = step(this.pos, this.readAxis(), deltaMs / 1000, PLAYER.speed, this.bounds);
-    this.player.setPosition(this.pos.x, this.pos.y);
+    this.pending += deltaMs / 1000;
+    const dt = 1 / STEP_HZ;
+    let steps = 0;
+    while (this.pending >= dt && steps < MAX_STEPS_PER_FRAME) {
+      for (const e of stepGame(this.state, dt)) this.removePickup(e.x, e.y, e.kind);
+      this.pending -= dt;
+      steps++;
+    }
+    if (steps === MAX_STEPS_PER_FRAME) this.pending = 0;
 
+    this.scoreText.setText(String(this.state.score).padStart(6, '0'));
+    this.placeHero(time);
     const lit =
       this.steadyPellets || Math.floor((time / 1000) * PICKUP_ART.pelletBlinkHz * 2) % 2 === 0;
-    for (const p of this.pellets) p.setVisible(lit);
+    for (const p of this.pellets.values()) p.setVisible(lit);
   }
 
   snapshot(): GameSnapshot {
+    const { hero } = this.state;
     return {
-      player: { ...this.pos },
       seed: this.seed,
       level: this.level,
-      maze: { grid: this.maze.grid, usedFallback: this.usedFallback },
+      hero: { x: hero.x, y: hero.y, dir: hero.dir, moving: hero.moving },
+      wanted: this.state.wanted,
+      score: this.state.score,
+      dotsLeft: this.state.dotsLeft,
+      maze: { grid: this.state.maze.grid, usedFallback: this.usedFallback },
       screen: { width: GAME_WIDTH, height: GAME_HEIGHT, zoom: this.scale.zoom },
     };
   }
 
-  private loadMaze(level: number): void {
-    const built = buildMaze(this.seed, level);
-    this.maze = built.maze;
-    this.usedFallback = built.usedFallback;
-
-    // Walls: drawn once into a canvas texture.
-    const art = drawWalls(this.maze, TILE_SIZE);
-    const key = `walls-${this.seed}-${level}`;
-    const texture = this.textures.createCanvas(key, art.width, art.height);
-    if (!texture) throw new Error('could not create the wall texture');
-    texture.getContext().putImageData(new ImageData(art.data, art.width, art.height), 0, 0);
-    texture.refresh();
-    this.add.image(0, HUD_HEIGHT, key).setOrigin(0, 0);
-
-    // Dots: one Graphics object for all of them.
-    const dots = this.add.graphics({ fillStyle: { color: NEON.dot } });
-    const s = PICKUP_ART.dotSize;
-    this.forEachTile((x, y, c) => {
-      if (c === TILE.dot) dots.fillRect(x - s / 2, y - s / 2, s, s);
+  private setUpInput(): void {
+    const kb = this.input.keyboard;
+    if (!kb) throw new Error('keyboard input is not available');
+    // Stop arrow keys scrolling the page while the game has focus.
+    kb.addCapture('UP,DOWN,LEFT,RIGHT');
+    kb.on('keydown', (e: KeyboardEvent) => {
+      const dir = KEY_DIRS[e.code];
+      if (dir) setWanted(this.state, dir);
     });
 
-    // Power pellets: one shared texture.
-    this.makePelletTexture();
-    this.forEachTile((x, y, c) => {
-      if (c === TILE.pellet) this.pellets.push(this.add.image(x, y, PELLET_TEXTURE));
+    // Swipes (WW-06): a direction is taken as soon as the finger has moved far
+    // enough, and a new swipe can start without lifting the finger.
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.swipeStart = { x: p.x, y: p.y };
     });
-  }
-
-  /** Calls `fn` with the screen centre of every tile. */
-  private forEachTile(fn: (x: number, y: number, c: string) => void): void {
-    this.maze.grid.forEach((row, ty) => {
-      for (let tx = 0; tx < row.length; tx++) {
-        fn(
-          tx * TILE_SIZE + TILE_SIZE / 2,
-          HUD_HEIGHT + ty * TILE_SIZE + TILE_SIZE / 2,
-          row[tx] as string,
-        );
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (!this.swipeStart || !p.isDown) return;
+      const dir = swipeDirection(
+        p.x - this.swipeStart.x,
+        p.y - this.swipeStart.y,
+        SWIPE.minDistance,
+      );
+      if (dir) {
+        setWanted(this.state, dir);
+        this.swipeStart = { x: p.x, y: p.y };
       }
     });
+    this.input.on('pointerup', () => {
+      this.swipeStart = null;
+    });
   }
 
-  private makePelletTexture(): void {
+  private placeHero(time: number): void {
+    const { hero } = this.state;
+    const frame = hero.moving
+      ? Math.floor((time / 1000) * HERO.chompHz) % HERO_MOUTH_FRAMES.length
+      : 1;
+    const p = toScreen(hero);
+    this.hero.setPosition(p.x, p.y).setTexture(heroTexture(hero.dir, frame));
+  }
+
+  private removePickup(x: number, y: number, kind: 'dot' | 'pellet'): void {
+    if (kind === 'pellet') {
+      this.pellets.get(`${x},${y}`)?.destroy();
+      this.pellets.delete(`${x},${y}`);
+    } else {
+      this.redrawDots();
+    }
+  }
+
+  private drawMaze(): void {
+    const { maze } = this.state;
+    const art = drawWalls(maze, TILE_SIZE);
+    const key = `walls-${this.seed}-${this.level}`;
+    this.addPixelTexture(key, art);
+    this.add.image(0, HUD_HEIGHT, key).setOrigin(0, 0);
+
+    this.dots = this.add.graphics({ fillStyle: { color: NEON.dot } });
+    this.redrawDots();
+    this.state.tiles.forEach((row, y) =>
+      row.forEach((c, x) => {
+        if (c !== TILE.pellet) return;
+        const p = toScreen({ x, y });
+        this.pellets.set(`${x},${y}`, this.add.image(p.x, p.y, PELLET_TEXTURE));
+      }),
+    );
+  }
+
+  /** Dots: one Graphics object, redrawn when a dot is eaten. */
+  private redrawDots(): void {
+    const s = PICKUP_ART.dotSize;
+    this.dots.clear();
+    this.state.tiles.forEach((row, y) =>
+      row.forEach((c, x) => {
+        if (c !== TILE.dot) return;
+        const p = toScreen({ x, y });
+        this.dots.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+      }),
+    );
+  }
+
+  private makeTextures(): void {
+    for (const dir of DIRS) {
+      HERO_MOUTH_FRAMES.forEach((mouth, frame) => {
+        const key = heroTexture(dir, frame);
+        if (!this.textures.exists(key)) this.addPixelTexture(key, heroPixels(dir, mouth));
+      });
+    }
     if (this.textures.exists(PELLET_TEXTURE)) return;
     const n = PICKUP_ART.pelletSize;
     const g = this.make.graphics({}, false);
@@ -151,6 +220,13 @@ export class GameScene extends Phaser.Scene {
     g.destroy();
   }
 
+  private addPixelTexture(key: string, art: Pixels): void {
+    const texture = this.textures.createCanvas(key, art.width, art.height);
+    if (!texture) throw new Error(`could not create texture ${key}`);
+    texture.getContext().putImageData(new ImageData(art.data, art.width, art.height), 0, 0);
+    texture.refresh();
+  }
+
   private drawHud(): void {
     const style = { fontFamily: HUD.font, fontSize: `${HUD.fontSize}px`, color: NEON.hud };
     const dim = { ...style, color: NEON.hudDim };
@@ -158,22 +234,10 @@ export class GameScene extends Phaser.Scene {
     const top = (HUD_HEIGHT - HUD.fontSize) / 2;
     const bottom = GAME_HEIGHT - HUD_HEIGHT + top;
     const label = this.add.text(m, top, 'SCORE', dim);
-    this.add.text(m + label.width + HUD.fontSize, top, '000000', style);
+    this.scoreText = this.add.text(m + label.width + HUD.fontSize, top, '000000', style);
     const hi = this.add.text(GAME_WIDTH - m, top, '000000', style).setOrigin(1, 0);
     this.add.text(hi.x - hi.width - HUD.fontSize, top, 'HI', dim).setOrigin(1, 0);
     this.add.text(GAME_WIDTH - m, bottom, `MAZE ${this.level}`, style).setOrigin(1, 0);
-  }
-
-  private readAxis(): Axis {
-    const k = this.keys;
-    const left = k.left.isDown || k.a.isDown;
-    const right = k.right.isDown || k.d.isDown;
-    const up = k.up.isDown || k.w.isDown;
-    const down = k.down.isDown || k.s.isDown;
-    return {
-      x: left === right ? 0 : left ? -1 : 1,
-      y: up === down ? 0 : up ? -1 : 1,
-    };
   }
 }
 
