@@ -20,7 +20,7 @@ const maze = fallbackMaze(1);
 const row = levelRow(1);
 
 function ctx(hero: TargetContext['hero'], murk = { x: 0, y: 0 }): TargetContext {
-  return { maze, hero, murk };
+  return { maze, mode: 'chase', hero, murk };
 }
 
 describe('the cast', () => {

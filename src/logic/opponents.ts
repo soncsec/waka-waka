@@ -1,6 +1,7 @@
 import { OPPONENTS, type LevelRow } from '../config/tuning';
 import type { Maze } from './maze';
-import { DIR_VEC, type Dir, type Mover, type Point } from './movement';
+import { DIR_VEC, OPPOSITE, type Dir, type Mover, type Point } from './movement';
+import type { Mode } from './scheduler';
 
 /** The cast, in order (WW-02). Index 0 is Murk. */
 export const OPPONENT_NAMES = ['murk', 'gnash', 'bolt', 'wisp'] as const;
@@ -68,6 +69,8 @@ export function homeCorner(maze: Maze, name: OpponentName): Point {
 
 export interface TargetContext {
   maze: Maze;
+  /** Scatter sends everyone to its corner; chase uses the personal targets. */
+  mode: Mode;
   /** The hero's tile and facing. */
   hero: Point & { dir: Dir };
   /** Murk's tile, for Bolt's flanking move. */
@@ -84,6 +87,7 @@ export interface TargetContext {
  *   back to its corner.
  */
 export function chaseTarget(name: OpponentName, self: Point, ctx: TargetContext): Point {
+  if (ctx.mode === 'scatter') return homeCorner(ctx.maze, name);
   const { hero } = ctx;
   const [dx, dy] = DIR_VEC[hero.dir];
   switch (name) {
@@ -100,6 +104,11 @@ export function chaseTarget(name: OpponentName, self: Point, ctx: TargetContext)
       return far ? { x: hero.x, y: hero.y } : homeCorner(ctx.maze, 'wisp');
     }
   }
+}
+
+/** Turns every opponent out in the maze around (on each scatter/chase switch). */
+export function reverseAll(opponents: Opponent[]): void {
+  for (const o of opponents) if (o.state === 'out') o.dir = OPPOSITE[o.dir];
 }
 
 /**

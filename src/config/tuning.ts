@@ -51,10 +51,35 @@ export interface LevelRow {
   releaseDots: readonly [number, number, number, number];
   /** Any waiting opponent leaves if the hero goes this long without eating, in seconds. */
   releaseIdleSeconds: number;
+  /**
+   * Scatter and chase phases in order, in seconds (WW-02). The last phase lasts
+   * for ever. Every switch reverses the opponents out in the maze.
+   */
+  modes: readonly ModePhase[];
+}
+
+export interface ModePhase {
+  mode: 'scatter' | 'chase';
+  seconds: number;
 }
 
 export const LEVELS: readonly LevelRow[] = [
-  { heroSpeed: 7.5, opponentSpeed: 7.0, releaseDots: [0, 0, 30, 60], releaseIdleSeconds: 4 },
+  {
+    heroSpeed: 7.5,
+    opponentSpeed: 7.0,
+    releaseDots: [0, 0, 30, 60],
+    releaseIdleSeconds: 4,
+    modes: [
+      { mode: 'scatter', seconds: 7 },
+      { mode: 'chase', seconds: 20 },
+      { mode: 'scatter', seconds: 7 },
+      { mode: 'chase', seconds: 20 },
+      { mode: 'scatter', seconds: 5 },
+      { mode: 'chase', seconds: 20 },
+      { mode: 'scatter', seconds: 5 },
+      { mode: 'chase', seconds: Infinity },
+    ],
+  },
 ];
 
 /** Round rules. Times are in seconds. */
