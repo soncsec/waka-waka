@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { heroPixels, HERO_MOUTH_FRAMES, SPRITE_SIZE } from '../../src/art/sprites';
+import { heroPixels, HERO_MOUTH_FRAMES, opponentPixels, SPRITE_SIZE } from '../../src/art/sprites';
 import { NEON } from '../../src/config/tuning';
 
 const pixel = (data: Uint8ClampedArray, x: number, y: number): number | null => {
@@ -34,5 +34,31 @@ describe('heroPixels', () => {
 
   it('has a frame for each mouth position', () => {
     expect(HERO_MOUTH_FRAMES.length).toBe(4);
+  });
+});
+
+describe('opponentPixels', () => {
+  it('draws each opponent in its own colour, with eyes and an outline', () => {
+    for (const who of [0, 1, 2, 3] as const) {
+      const art = opponentPixels(who, 'left', 0).data;
+      const colours = new Set<number | null>();
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) colours.add(pixel(art, x, y));
+      expect(colours).toContain(NEON.opponents[who]);
+      expect(colours).toContain(NEON.eyeWhite);
+      expect(colours).toContain(NEON.pupil);
+      expect(colours).toContain(NEON.opponentOutline);
+    }
+  });
+
+  it('looks the way it moves', () => {
+    expect(pixel(opponentPixels(0, 'left', 0).data, 4, 6)).toBe(NEON.pupil);
+    expect(pixel(opponentPixels(0, 'right', 0).data, 6, 6)).toBe(NEON.pupil);
+  });
+
+  it('animates Murk but not Bolt', () => {
+    const same = (a: Uint8ClampedArray, b: Uint8ClampedArray): boolean =>
+      a.every((v, i) => v === b[i]);
+    expect(same(opponentPixels(0, 'up', 0).data, opponentPixels(0, 'up', 1).data)).toBe(false);
+    expect(same(opponentPixels(2, 'up', 0).data, opponentPixels(2, 'up', 1).data)).toBe(true);
   });
 });

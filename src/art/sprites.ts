@@ -61,3 +61,62 @@ export function heroPixels(dir: Dir, mouth: number): Pixels {
     return r > 5.6 && dx + dy > 2 ? NEON.heroShade : NEON.hero;
   });
 }
+
+/** The four opponents, in order: Murk, Gnash, Bolt, Wisp. */
+export type OpponentIndex = 0 | 1 | 2 | 3;
+
+/** Body shapes (WW-04). dx, dy: offset from the centre; r, a: polar; t: animation time 0..1. */
+const SHAPES: readonly ((
+  dx: number,
+  dy: number,
+  r: number,
+  a: number,
+  t: number,
+  px: number,
+) => boolean)[] = [
+  // Murk: a spiky ball whose spikes turn.
+  (_dx, _dy, r, a, t) => r < 4.6 + (Math.cos(6 * a + t * 5) > 0.35 ? 2.6 : 0),
+  // Gnash: a box with clipped corners (its teeth are drawn on top).
+  (dx, dy) => Math.abs(dx) <= 6 && Math.abs(dy) <= 6 && !(Math.abs(dx) === 6 && Math.abs(dy) === 6),
+  // Bolt: a diamond.
+  (dx, dy) => Math.abs(dx) + Math.abs(dy) <= 7.6,
+  // Wisp: a jelly with a rippling skirt.
+  (dx, dy, r, _a, t, px) =>
+    dy <= 0.5
+      ? r <= 6.6
+      : dy <= 7.5 && Math.abs(dx) <= 6.6 && (px + Math.floor(t * 6) + (dy > 4 ? 1 : 0)) % 3 !== 0,
+];
+
+/** Where an opponent's pupils look, for each facing. */
+const LOOK: Readonly<Record<Dir, readonly [number, number]>> = {
+  up: [0, -1],
+  down: [0, 1],
+  left: [-1, 0],
+  right: [1, 0],
+};
+
+/**
+ * An opponent (WW-04): its body shape in its colour with a dark outline, and two
+ * eyes looking the way it moves. `frame` animates Murk's spikes and Wisp's skirt.
+ */
+export function opponentPixels(who: OpponentIndex, dir: Dir, frame: number): Pixels {
+  const shape = SHAPES[who] as (typeof SHAPES)[number];
+  const t = frame / 6;
+  const body = (px: number, py: number): boolean => {
+    if (px < 0 || py < 0 || px >= SPRITE_SIZE || py >= SPRITE_SIZE) return false;
+    const dx = px - 7.5;
+    const dy = py - 7.5;
+    return shape(dx, dy, Math.hypot(dx, dy), Math.atan2(dy, dx), t, px);
+  };
+  const [ox, oy] = LOOK[dir];
+  return paint(SPRITE_SIZE, (px, py) => {
+    for (const ex of [4, 9]) {
+      if (px === ex + 1 + ox && py === 6 + oy) return NEON.pupil;
+      if (px >= ex && px < ex + 3 && py >= 5 && py < 8) return NEON.eyeWhite;
+    }
+    if (who === 1 && py === 11 && px >= 3 && px <= 12 && (px - 3) % 2 === 0) return NEON.gnashTeeth;
+    if (body(px, py)) return NEON.opponents[who];
+    const touches = body(px + 1, py) || body(px - 1, py) || body(px, py + 1) || body(px, py - 1);
+    return touches ? NEON.opponentOutline : null;
+  });
+}
