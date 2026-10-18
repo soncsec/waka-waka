@@ -24,6 +24,11 @@ src/
 ├── main.ts            Phaser config, whole-number zoom, loads the test hook in the e2e build only
 ├── config/tuning.ts   every gameplay number
 ├── logic/             game rules: plain TypeScript, no Phaser imports (ESLint enforces), unit tested
+│   ├── maze/          generator, validator, fallback maze
+│   ├── movement       grid movement and turn buffering
+│   ├── ghosts         targeting, mode scheduler, special moves
+│   └── game           dots, score, lives, levels, difficulty lookup
+├── art/               code-drawn pixel art, turned into textures at boot
 ├── scenes/            Phaser scenes: thin, call into logic/
 └── debug/testHook.ts  window.__game for Playwright (e2e build only)
 tests/
@@ -35,4 +40,58 @@ scripts/               release.sh, release-remote.sh, smoke_test.py, zap_check.p
 
 ## Game decisions
 
-_None yet._
+Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the shared ADRs.
+
+### WW-01 Grid movement owned by `src/logic/`
+
+- **Decision:** the hero and opponents live on the tile grid. Each actor has a tile, a direction and progress towards the next tile. The simulation runs on a fixed 60 Hz step inside `src/logic/`; scenes only draw the result. A pressed direction is buffered and taken at the next tile where it is open.
+- **Alternatives:** Phaser Arcade physics with wall colliders.
+- **Why:** exact cornering and turn buffering, identical results for the same seed, and unit-testable without a browser. Physics bodies snag on corners and drift off the grid.
+
+### WW-02 Opponent AI: target tiles plus a mode scheduler
+
+- **Decision:** at each tile an opponent picks the open direction (no reversing) that brings it closest to its target tile. Each personality has its own target (Murk: the hero; Gnash: 4 tiles ahead; Bolt: twice the vector from Murk to 2 tiles ahead; Wisp: the hero when more than 8 tiles away, else its corner). A scheduler switches all four between scatter, chase and scared, and reverses them on each switch. Later mazes switch on short breadth-first look-ahead and special moves through the difficulty table.
+- **Alternatives:** full A* pathfinding every step; behaviour trees.
+- **Why:** readable, distinct personalities and cheap to run. A* makes every opponent behave the same and feel unfair; behaviour trees are more code than four personalities need.
+
+### WW-03 Mazes generated at runtime, with checks and a fallback
+
+- **Decision:** a seeded generator on a lattice of 8×9 nodes (pitch 3: one-tile corridors, walls at least two tiles thick) builds a mirror-symmetric maze with a ghost house, a wrap-around tunnel and a start tile. It begins with every segment open and closes random mirrored pairs while every node keeps 0 or at least 2 connections and the maze stays connected. A chain of corner nodes may be at most 3 segments, so no stretch exceeds 8 tiles without a turn-off. A separate validator checks connectivity, no dead ends, the 10-tile rule counted around corners, and reachability of every dot. A maze that fails is regenerated from the next seed; after 20 failures a built-in maze is used. Each run's seed is random; `?seed=` replays it.
+- **Alternatives:** a pool of pre-generated mazes shipped as JSON; hand-made mazes only.
+- **Why:** the owner chose new mazes every run. In the spike, 2,000 out of 2,000 seeds passed the rule, so the retry and fallback are safety nets. Seeds keep any bad maze reproducible for bug reports.
+
+### WW-04 Pixel art drawn in code
+
+- **Decision:** sprites (hero, the four opponents, scared state, pellets, bonus items) are defined as small pixel maps in `src/art/` and turned into textures when the game boots. Walls are drawn as rounded neon lines from the maze grid. Fonts and UI follow the other Soncrant Arcade games.
+- **Alternatives:** PNG sprite sheets from `legacy/` or new art.
+- **Why:** the legacy pack has no matching set of four opponents. Code-drawn art needs no new third-party assets, stays crisp at whole-number zoom and is easy to recolour.
+
+### WW-05 Screen and devices
+
+- **Decision:** logical size 384×464 (24×27 tiles of 16 px plus a 16 px HUD above and below), largest whole-number zoom that fits. Phones play in portrait only; landscape shows a "rotate your phone" prompt and pauses.
+- **Alternatives:** a smaller maze that fits landscape phones; non-integer scaling.
+- **Why:** this size fits a 1080p laptop at 2× and a portrait phone at 1× while keeping pixels sharp.
+
+### WW-06 Input
+
+- **Decision:** keyboard (arrows, WASD, P or Esc to pause) and touch: a swipe anywhere sets the buffered direction, with an optional on-screen d-pad below the maze. All inputs feed the same buffered-direction command in `src/logic/`.
+- **Alternatives:** a virtual joystick.
+- **Why:** maze games need four discrete directions; swipes and a d-pad map to them directly.
+
+### WW-07 Difficulty table
+
+- **Decision:** `src/config/tuning.ts` holds one row per maze up to the plateau (about maze 20): hero and opponent speeds, scared time (dropping to "reverse only"), scatter and chase timings, house release timing, look-ahead depth and which special moves are on. Beyond the last row, the last row repeats.
+- **Alternatives:** formulas in code.
+- **Why:** balancing after playtests becomes a data change that is easy to review.
+
+### WW-08 Security for this game
+
+- **Decision:** static files only: no server code, network calls, cookies or accounts. Only two inputs are read. `?seed=` must be a decimal integer from 0 to 2³²−1 (at most 10 digits), otherwise it is ignored. The localStorage high score must parse as a non-negative safe integer, otherwise it is reset. Nothing from the URL or storage is ever put into HTML. No new dependencies. All shared gates (CodeQL, ESLint, gitleaks, `npm audit` failing on high or critical, production-CSP e2e test, ZAP baseline) stay on.
+- **Alternatives:** none considered; this is the shared baseline applied to this game's inputs.
+- **Why:** the owner's top priority is that nothing shipped can be exploited.
+
+### WW-09 Audio later
+
+- **Decision:** no audio until milestone M5. Then: short CC0 sound effects bundled locally, approved by the owner before they are added, listed in `CREDITS.md`, with a mute toggle (the mute setting is not stored).
+- **Alternatives:** synthesised sound in code.
+- **Why:** gameplay feedback comes first; sourcing sounds needs the owner's approval.
