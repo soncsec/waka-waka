@@ -1,4 +1,4 @@
-# Game Template — Architecture
+# Waka-Waka — Architecture
 
 The shared decisions for every Soncrant Arcade game are recorded once, in
 [`soncsec/star-destroyer` ARCHITECTURE.md](https://github.com/soncsec/star-destroyer/blob/main/ARCHITECTURE.md):
