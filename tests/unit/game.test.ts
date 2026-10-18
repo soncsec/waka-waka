@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { HERO, MURK, ROUND, SCORE, STEP_HZ } from '../../src/config/tuning';
+import { HERO, OPPONENTS, ROUND, SCORE, STEP_HZ } from '../../src/config/tuning';
 import {
   clearMaze,
   createGame,
-  murkStart,
   nextMazeDue,
   setWanted,
   stepGame,
   tileAt,
   type GameState,
 } from '../../src/logic/game';
+import { levelRow } from '../../src/logic/difficulty';
 import { fallbackMaze, TILE, validateMaze, type Maze } from '../../src/logic/maze';
+import { houseExit, OPPONENT_NAMES } from '../../src/logic/opponents';
 
 const DT = 1 / STEP_HZ;
 
@@ -48,8 +49,11 @@ describe('createGame', () => {
     expect(state.phase).toBe('ready');
     expect(state.lives).toBe(ROUND.lives);
     expect(state.hero).toMatchObject({ ...maze.start, dir: HERO.startDir });
-    expect(state.murk).toMatchObject({ ...murkStart(maze), dir: MURK.startDir });
-    expect(tileAt(state, Math.floor(state.murk.x), state.murk.y)).toBe(TILE.empty);
+    const murk = state.opponents[0];
+    expect(state.opponents.map((o) => o.name)).toEqual([...OPPONENT_NAMES]);
+    expect(murk).toMatchObject({ ...houseExit(maze), dir: OPPONENTS.startDir, state: 'out' });
+    expect(tileAt(state, Math.floor(murk?.x ?? 0), murk?.y ?? 0)).toBe(TILE.empty);
+    expect(state.opponents.slice(1).map((o) => o.state)).toEqual(['waiting', 'waiting', 'waiting']);
     const { dots, pellets } = validateMaze(maze).stats;
     expect(state.dotsLeft).toBe(dots + pellets);
     expect(state.score).toBe(0);
@@ -71,7 +75,7 @@ describe('stepGame', () => {
     const state = createGame(corridors());
     play(state);
     stepGame(state, DT);
-    expect(state.hero.x).toBeCloseTo(2.5 - HERO.speed * DT);
+    expect(state.hero.x).toBeCloseTo(2.5 - levelRow(1).heroSpeed * DT);
   });
 
   it('eats dots and pellets for points until the maze is cleared', () => {
@@ -99,7 +103,7 @@ describe('stepGame', () => {
     expect(eaten).toEqual([{ x: 1, y: 1, kind: 'dot' }]);
   });
 
-  it('keeps the hero and Murk on corridors in a real maze', () => {
+  it('keeps the hero and the opponents out hunting on corridors in a real maze', () => {
     const state = createGame(fallbackMaze(1));
     const dirs = ['up', 'down', 'left', 'right'] as const;
     const onCorridor = ({ x, y }: { x: number; y: number }): boolean =>
@@ -111,17 +115,20 @@ describe('stepGame', () => {
       if (t % 20 === 0) setWanted(state, dirs[(t / 20) % 4] ?? 'left');
       stepGame(state, DT);
       expect(onCorridor(state.hero)).toBe(true);
-      expect(onCorridor(state.murk)).toBe(true);
+      for (const o of state.opponents) if (o.state === 'out') expect(onCorridor(o)).toBe(true);
     }
   });
 
-  it('has Murk hunt down a hero that stands still', () => {
+  it('has an opponent hunt down a hero that stands still', () => {
     const state = createGame(fallbackMaze(1));
     play(state);
     runUntil(state, () => state.phase === 'dying');
-    expect(
-      Math.abs(state.hero.x - state.murk.x) + Math.abs(state.hero.y - state.murk.y),
-    ).toBeLessThan(ROUND.catchDistance);
+    const nearest = Math.min(
+      ...state.opponents
+        .filter((o) => o.state === 'out')
+        .map((o) => Math.abs(state.hero.x - o.x) + Math.abs(state.hero.y - o.y)),
+    );
+    expect(nearest).toBeLessThan(ROUND.catchDistance);
   });
 
   it('takes a life when caught, then resets everyone but keeps eaten dots', () => {
@@ -132,7 +139,8 @@ describe('stepGame', () => {
     runUntil(state, () => state.phase === 'ready');
     expect(state.lives).toBe(ROUND.lives - 1);
     expect(state.hero).toMatchObject(state.maze.start);
-    expect(state.murk).toMatchObject(murkStart(state.maze));
+    expect(state.opponents[0]).toMatchObject({ ...houseExit(state.maze), state: 'out' });
+    expect(state.opponents.slice(1).every((o) => o.state === 'waiting')).toBe(true);
     expect([state.score, state.dotsLeft]).toEqual([score, dotsLeft]);
   });
 
@@ -148,7 +156,8 @@ describe('stepGame', () => {
 
 describe('the next maze', () => {
   it('keeps the score and lives carried over from the last maze', () => {
-    const state = createGame(corridors(), { score: 1230, lives: 2 });
+    const state = createGame(corridors(), { level: 2, carry: { score: 1230, lives: 2 } });
+    expect(state.level).toBe(2);
     expect(state).toMatchObject({ score: 1230, lives: 2, phase: 'ready' });
     expect(state.dotsLeft).toBe(2);
   });

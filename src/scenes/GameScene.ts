@@ -122,7 +122,7 @@ export class GameScene extends Phaser.Scene {
     this.pending = 0;
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
-    this.state = createGame(built.maze, this.carry);
+    this.state = createGame(built.maze, { level: this.level, carry: this.carry });
 
     this.makeTextures();
     this.drawMaze();
@@ -255,6 +255,8 @@ export class GameScene extends Phaser.Scene {
     this.hero.setVisible(phase !== 'dying' || Math.floor(time / 100) % 2 === 0);
 
     const seconds = time / 1000;
+    const bob = Math.floor(seconds * OPPONENT_ART.bobHz) % 2;
+    const mFrame = Math.floor(seconds * OPPONENT_ART.frameHz) % OPPONENT_ART.frames;
     opponents.forEach((o, i) => {
       const img = this.opponents[i];
       if (!img) return;

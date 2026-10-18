@@ -1,4 +1,4 @@
-import { HOUSE_RELEASE, OPPONENTS } from '../config/tuning';
+import { OPPONENTS, type LevelRow } from '../config/tuning';
 import type { Maze } from './maze';
 import { DIR_VEC, type Dir, type Mover, type Point } from './movement';
 
@@ -104,11 +104,16 @@ export function chaseTarget(name: OpponentName, self: Point, ctx: TargetContext)
 
 /**
  * Whether a waiting opponent may leave the house: once enough dots have been
- * eaten this life, or when the hero has gone `idleSeconds` without eating.
+ * eaten this life, or when the hero has gone too long without eating (WW-07).
  */
-export function mayLeave(index: number, dotsThisLife: number, secondsSinceDot: number): boolean {
-  const dots = HOUSE_RELEASE.dots[index] ?? 0;
-  return dotsThisLife >= dots || secondsSinceDot >= HOUSE_RELEASE.idleSeconds;
+export function mayLeave(
+  index: number,
+  dotsThisLife: number,
+  secondsSinceDot: number,
+  row: LevelRow,
+): boolean {
+  const dots = row.releaseDots[index] ?? 0;
+  return dotsThisLife >= dots || secondsSinceDot >= row.releaseIdleSeconds;
 }
 
 /**

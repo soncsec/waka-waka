@@ -13,17 +13,15 @@ export const STEP_HZ = 60;
 /** Most simulation steps run in one frame, so a stalled tab doesn't fast-forward. */
 export const MAX_STEPS_PER_FRAME = 5;
 
-/** The hero. Speeds are in tiles per second. */
+/** The hero. Its speed is in the difficulty table below. */
 export const HERO = {
-  speed: 7.5,
   startDir: 'left',
   /** Mouth frames per second while moving. */
   chompHz: 14,
 } as const;
 
-/** The opponents (WW-02). Speeds are in tiles per second; distances in tiles. */
+/** The opponents (WW-02). Their maze speed is in the difficulty table; distances are in tiles. */
 export const OPPONENTS = {
-  speed: 7.0,
   /** Speed inside the ghost house, waiting and leaving. */
   houseSpeed: 3.5,
   /** Direction an opponent takes when it comes out of the door. */
@@ -40,13 +38,24 @@ export const OPPONENTS = {
   bob: 0.5,
 } as const;
 
-/** When opponents leave the ghost house (WW-02), by cast order: Murk, Gnash, Bolt, Wisp. */
-export const HOUSE_RELEASE = {
-  /** Dots eaten this life before each may leave. */
-  dots: [0, 0, 30, 60],
-  /** Any waiting opponent leaves if the hero goes this long without eating. */
-  idleSeconds: 4,
-} as const;
+/**
+ * Difficulty table (WW-07): one row per maze. Beyond the last row, the last row
+ * repeats. M3.1 fills the rows up to the plateau around maze 20.
+ */
+export interface LevelRow {
+  /** Hero speed in tiles per second. */
+  heroSpeed: number;
+  /** Opponent speed out in the maze, in tiles per second. */
+  opponentSpeed: number;
+  /** Dots eaten this life before each opponent may leave the house, in cast order. */
+  releaseDots: readonly [number, number, number, number];
+  /** Any waiting opponent leaves if the hero goes this long without eating, in seconds. */
+  releaseIdleSeconds: number;
+}
+
+export const LEVELS: readonly LevelRow[] = [
+  { heroSpeed: 7.5, opponentSpeed: 7.0, releaseDots: [0, 0, 30, 60], releaseIdleSeconds: 4 },
+];
 
 /** Round rules. Times are in seconds. */
 export const ROUND = {

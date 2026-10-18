@@ -1,4 +1,5 @@
-import { HERO, OPPONENTS, ROUND, SCORE } from '../config/tuning';
+import { HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
+import { levelRow } from './difficulty';
 import { isWalkable, TILE, type Maze } from './maze';
 import {
   chooseToward,
@@ -24,6 +25,10 @@ export type Phase = 'ready' | 'playing' | 'dying' | 'gameover' | 'cleared';
 /** The state of one maze being played. Engine-free (ADR-006). */
 export interface GameState {
   maze: Maze;
+  /** Maze number, from 1. */
+  level: number;
+  /** This maze's difficulty row (WW-07). */
+  row: LevelRow;
   /** Mutable copy of the maze grid: eaten dots become empty corridor. */
   tiles: string[][];
   hero: Mover;
@@ -53,12 +58,20 @@ export interface Carry {
   lives: number;
 }
 
-export function createGame(maze: Maze, carry?: Carry): GameState {
+export interface GameOptions {
+  /** Maze number, 1 for the first; picks the difficulty row (WW-07). */
+  level?: number;
+  carry?: Carry | undefined;
+}
+
+export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): GameState {
   const tiles = maze.grid.map((row) => row.split(''));
   const dotsLeft = tiles.flat().filter((c) => c === TILE.dot || c === TILE.pellet).length;
   const state: GameState = {
     maze,
     tiles,
+    level,
+    row: levelRow(level),
     hero: { x: 0, y: 0, dir: HERO.startDir, moving: true },
     opponents: [],
     wanted: null,
@@ -144,7 +157,7 @@ export function stepGame(state: GameState, dt: number): Eaten[] {
 function play(state: GameState, dt: number): Eaten[] {
   const { maze } = state;
   const open = (x: number, y: number): boolean => isWalkable(tileAt(state, x, y));
-  state.wanted = move(state.hero, state.wanted, HERO.speed * dt, open, maze.width);
+  state.wanted = move(state.hero, state.wanted, state.row.heroSpeed * dt, open, maze.width);
 
   const eaten: Eaten[] = [];
   const t = tileOf(state.hero, maze.width);
@@ -188,7 +201,7 @@ function moveOpponents(
 
   // Release waiting opponents one at a time, in cast order.
   const next = state.opponents.findIndex((o) => o.state === 'waiting');
-  if (next >= 0 && mayLeave(next, state.dotsThisLife, state.sinceDot)) {
+  if (next >= 0 && mayLeave(next, state.dotsThisLife, state.sinceDot, state.row)) {
     (state.opponents[next] as Opponent).state = 'leaving';
     state.sinceDot = 0;
   }
@@ -199,6 +212,6 @@ function moveOpponents(
       continue;
     }
     const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
-    steer(o, OPPONENTS.speed * dt, choose, open, maze.width);
+    steer(o, state.row.opponentSpeed * dt, choose, open, maze.width);
   }
 }
