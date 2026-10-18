@@ -1,0 +1,38 @@
+import { describe, expect, it } from 'vitest';
+import { heroPixels, HERO_MOUTH_FRAMES, SPRITE_SIZE } from '../../src/art/sprites';
+import { NEON } from '../../src/config/tuning';
+
+const pixel = (data: Uint8ClampedArray, x: number, y: number): number | null => {
+  const i = (y * SPRITE_SIZE + x) * 4;
+  if (data[i + 3] === 0) return null;
+  return ((data[i] as number) << 16) | ((data[i + 1] as number) << 8) | (data[i + 2] as number);
+};
+
+describe('heroPixels', () => {
+  it('is one 16 x 16 tile', () => {
+    const art = heroPixels('left', 0.45);
+    expect([art.width, art.height, art.data.length]).toEqual([16, 16, 16 * 16 * 4]);
+  });
+
+  it('opens its mouth in the direction it faces', () => {
+    const right = heroPixels('right', 0.75).data;
+    const left = heroPixels('left', 0.75).data;
+    expect(pixel(right, 13, 8)).toBeNull();
+    expect(pixel(right, 2, 8)).not.toBeNull();
+    expect(pixel(left, 2, 8)).toBeNull();
+    expect(pixel(left, 13, 8)).not.toBeNull();
+  });
+
+  it('has an eye, teeth when open, and the body colour', () => {
+    const art = heroPixels('up', 0.75).data;
+    const colours = new Set<number | null>();
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) colours.add(pixel(art, x, y));
+    expect(colours).toContain(NEON.hero);
+    expect(colours).toContain(NEON.heroEye);
+    expect(colours).toContain(NEON.heroTeeth);
+  });
+
+  it('has a frame for each mouth position', () => {
+    expect(HERO_MOUTH_FRAMES.length).toBe(4);
+  });
+});
