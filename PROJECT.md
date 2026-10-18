@@ -50,6 +50,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-18 | Playable on desktop and on touchscreen phones and tablets; tablets in either orientation |
 | 2026-10-18 | Swipe controls move from M2.6 into M1.3, so the first playable works on touchscreens |
 | 2026-10-18 | First live on games.soncrant.com after M1 (the first chase), each release with owner approval; the card keeps its final summary |
+| 2026-10-18 | Product review after M1 (tab "Product review" in the Claude Docs doc): quick wins pulled forward into M2.0; the next production release only after M2.3; the difficulty table starts in M2.1; an owner playtest and the originality review close M2; a phone readability check in M4 |
 
 ## 5. Open questions
 

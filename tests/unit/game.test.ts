@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { HERO, MURK, ROUND, SCORE, STEP_HZ } from '../../src/config/tuning';
 import {
+  clearMaze,
   createGame,
   murkStart,
+  nextMazeDue,
   setWanted,
   stepGame,
   tileAt,
@@ -141,6 +143,33 @@ describe('stepGame', () => {
     const before = structuredClone(state);
     for (let i = 0; i < STEP_HZ; i++) stepGame(state, DT);
     expect({ ...state, phaseTime: 0 }).toEqual({ ...before, phaseTime: 0 });
+  });
+});
+
+describe('the next maze', () => {
+  it('keeps the score and lives carried over from the last maze', () => {
+    const state = createGame(corridors(), { score: 1230, lives: 2 });
+    expect(state).toMatchObject({ score: 1230, lives: 2, phase: 'ready' });
+    expect(state.dotsLeft).toBe(2);
+  });
+
+  it('clearMaze eats everything left and ends the maze', () => {
+    const state = createGame(corridors());
+    clearMaze(state);
+    expect(state.phase).toBe('cleared');
+    expect(state.dotsLeft).toBe(0);
+    expect(state.tiles.flat()).not.toContain(TILE.dot);
+    expect(state.tiles.flat()).not.toContain(TILE.pellet);
+  });
+
+  it('is due once the MAZE CLEARED pause is over', () => {
+    const state = createGame(corridors());
+    expect(nextMazeDue(state)).toBe(false);
+    clearMaze(state);
+    expect(nextMazeDue(state)).toBe(false);
+    runUntil(state, () => state.phaseTime >= ROUND.clearedSeconds);
+    expect(state.phase).toBe('cleared');
+    expect(nextMazeDue(state)).toBe(true);
   });
 });
 

@@ -80,6 +80,34 @@ test('game over, then a key starts a new game without errors', async ({ page }) 
   expect(watched.errors).toEqual([]);
 });
 
+test('a cleared maze shows MAZE CLEARED, then the next maze starts with the score kept', async ({
+  page,
+}) => {
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  const first = await snapshot(page);
+  expect(first.message).toBe('READY!');
+  await expect
+    .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  await page.evaluate(() => window.__game?.skipMaze());
+  // The message follows the phase on the next frame.
+  await expect.poll(async () => (await snapshot(page)).message).toBe('MAZE CLEARED!');
+  const cleared = await snapshot(page);
+  expect(cleared).toMatchObject({ phase: 'cleared', dotsLeft: 0 });
+  await expect.poll(async () => (await snapshot(page)).level, { timeout: 15_000 }).toBe(2);
+  const next = await snapshot(page);
+  expect(next).toMatchObject({
+    seed: 7,
+    phase: 'ready',
+    score: cleared.score,
+    lives: cleared.lives,
+  });
+  expect(next.dotsLeft).toBeGreaterThan(0);
+  expect(next.maze.grid).not.toEqual(first.maze.grid);
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.
