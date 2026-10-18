@@ -46,7 +46,8 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-18 | Touch and mobile support; portrait only on phones |
 | 2026-10-18 | No deadline; secure, with no critical or high vulnerabilities |
 | 2026-10-18 | Architecture and milestone plan approved |
+| 2026-10-18 | The four docs are also kept in the Claude Docs doc "Waka-Waka Project Docs" |
 
 ## 5. Open questions
 
-1. Does the owner want a web page of the four docs, in addition to the repo copies?
+None right now.

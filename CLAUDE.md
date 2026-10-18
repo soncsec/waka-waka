@@ -19,6 +19,14 @@ Read `PROJECT.md` (scope), `ARCHITECTURE.md` (decisions), and `ROADMAP.md` (curr
 - Other games' sessions share this machine. Stop only processes you started, by PID or by your own port (e.g. the pid listening on your Playwright port). Never stop processes by name (`pkill -f vite`, `pkill -f "vite preview"`, `killall node`): that kills other sessions' servers mid-run.
 - This game's portal card is its own file in the portal repo, `games/waka-waka.json`. Change it only by PR to `soncsec/games-portal`.
 
+## Owner's standing guidance for this project
+
+- Cyber security is the number one priority. Never deploy anything that could be exploited, expose data that shouldn't be reachable, or allow unwanted commands.
+- Ask when anything is unclear, including the owner's own requests.
+- Reuse the working fonts, legacy art and pipeline, but suggest improvements.
+- Get a playable game early so real feedback starts sooner.
+- Remind the owner about unanswered questions and PRs waiting for review.
+
 ## Always ask the owner before
 
 - Changing the architecture or any ADR, or adding a dependency not listed in ARCHITECTURE.md
@@ -69,6 +77,7 @@ Read `PROJECT.md` (scope), `ARCHITECTURE.md` (decisions), and `ROADMAP.md` (curr
 - Update `ROADMAP.md` checkboxes and status as tasks complete.
 - Record new or changed decisions as ADRs in `ARCHITECTURE.md`, after approval.
 - Update `PROJECT.md` when the owner approves scope changes.
+- The four docs are mirrored, one tab each, in the owner's Claude Docs doc "Waka-Waka Project Docs" (https://claude.ai/code/artifact/18612403-df62-42cc-8581-45d5a53e84ff). The repo copies are the source of truth; update the doc whenever a PR that changes them is merged.
 
 ## Assets
 
