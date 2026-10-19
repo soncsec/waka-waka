@@ -4,6 +4,7 @@ import {
   heroPixels,
   opponentPixels,
   dashPixels,
+  lungePixels,
   scaredPixels,
   SPARK_FRAMES,
   sparkPixels,
@@ -89,6 +90,7 @@ const scaredTexture = (index: number, look: OpponentLook, frame: number): string
 const sparkTexture = (frame: number): string => `spark-${frame}`;
 const frenzyTexture = (dir: Dir, frame: number): string => `frenzy-${dir}-${frame}`;
 const dashTexture = (dir: Dir): string => `dash-${dir}`;
+const lungeTexture = (dir: Dir): string => `lunge-${dir}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
 
@@ -362,7 +364,10 @@ export class GameScene extends Phaser.Scene {
       const p = toScreen(o);
       // Only opponents out in the maze bob; the others already move up and down.
       const lift = o.state === 'out' ? bob : 0;
-      img.setPosition(p.x, p.y + lift).setTexture(this.opponentKey(i, o, mFrame, seconds));
+      // Lunge (WW-10): after a miss, Gnash shakes its head.
+      const recovering = i === 1 && this.state.specials[1]?.phase === 'recover';
+      const shake = recovering ? (Math.floor(seconds * DASH_ART.shakeHz) % 2) * 2 - 1 : 0;
+      img.setPosition(p.x + shake, p.y + lift).setTexture(this.opponentKey(i, o, mFrame, seconds));
       img.setVisible(phase !== 'gameover');
     });
   }
@@ -383,6 +388,9 @@ export class GameScene extends Phaser.Scene {
       return special === 'tell' ? frenzyTexture(o.dir, fast) : opponentTexture(i, o.dir, fast);
     }
     if (!o.scared && i === 2 && special !== 'ready') return dashTexture(o.dir);
+    if (!o.scared && i === 1 && (special === 'tell' || special === 'active')) {
+      return lungeTexture(o.dir);
+    }
     if (!o.scared) return opponentTexture(i, o.dir, frame);
     const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
     const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
@@ -509,6 +517,8 @@ export class GameScene extends Phaser.Scene {
     for (const dir of DIRS) {
       if (!this.textures.exists(dashTexture(dir)))
         this.addPixelTexture(dashTexture(dir), dashPixels(dir));
+      if (!this.textures.exists(lungeTexture(dir)))
+        this.addPixelTexture(lungeTexture(dir), lungePixels(dir));
     }
     for (let frame = 0; frame < SPARK_FRAMES; frame++) {
       const key = sparkTexture(frame);

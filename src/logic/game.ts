@@ -5,6 +5,9 @@ import {
   dashCanStart,
   dashStops,
   endDash,
+  endLunge,
+  lungeCanStart,
+  lungeTarget,
   specialSpeed,
   tickSpecials,
   type SpecialState,
@@ -15,6 +18,7 @@ import { isWalkable, TILE, type Maze } from './maze';
 import {
   chooseRandom,
   chooseShortest,
+  DIR_VEC,
   chooseToward,
   type Dir,
   gap,
@@ -347,12 +351,35 @@ function moveOpponents(
       }
       return;
     }
+    if (
+      i === 1 &&
+      special &&
+      special.phase !== 'ready' &&
+      special.phase !== 'tell' &&
+      state.row.lunge
+    ) {
+      if (special.phase === 'recover') return; // shaking its head
+      // Lunge (WW-10): jump straight on to the landing tile (or the wall before it).
+      const land = lungeTarget(special, state.row.lunge.jump);
+      const from = special.from;
+      const moved = (m: Mover): boolean => !from || m.x !== from.x || m.y !== from.y;
+      const [dx, dy] = DIR_VEC[o.dir];
+      const stop = (m: Mover): boolean =>
+        moved(m) &&
+        ((land !== null && m.x === land.x && m.y === land.y) || !open(m.x + dx, m.y + dy));
+      steer(o, Math.min(speed, cap) * dt, (m) => m.dir, open, maze.width, stop);
+      if (Number.isInteger(o.x) && Number.isInteger(o.y) && stop(o)) endLunge(special);
+      return;
+    }
     const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
-    // Bolt halts on the tile centre where it could start a Dash; the tell begins next step.
-    const dashFrom =
-      i === 2 && state.row.dash
-        ? (m: Mover): boolean => dashCanStart(state.specials, specialCtx, { ...o, ...m }) !== null
-        : undefined;
-    steer(o, Math.min(speed, cap) * dt, choose, open, maze.width, dashFrom);
+    // Bolt and Gnash halt on the tile centre where their move could start; the tell begins
+    // next step (WW-10).
+    const startsHere = (m: Mover): boolean => {
+      const here = { ...o, ...m };
+      if (i === 2) return dashCanStart(state.specials, specialCtx, here) !== null;
+      if (i === 1) return lungeCanStart(state.specials, specialCtx, here) !== null;
+      return false;
+    };
+    steer(o, Math.min(speed, cap) * dt, choose, open, maze.width, startsHere);
   });
 }

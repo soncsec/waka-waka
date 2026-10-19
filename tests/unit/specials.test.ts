@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NEON, STEP_HZ, type LevelRow } from '../../src/config/tuning';
-import { dashPixels, opponentPixels } from '../../src/art/sprites';
+import { dashPixels, lungePixels, opponentPixels } from '../../src/art/sprites';
 import { levelRow } from '../../src/logic/difficulty';
 import { createGame, powerUp, stepGame, type GameState } from '../../src/logic/game';
 import { fallbackMaze } from '../../src/logic/maze';
@@ -10,6 +10,7 @@ import {
   dashAim,
   dashStops,
   endDash,
+  lungeCanStart,
   othersBusy,
   primeSpecial,
   specialSpeed,
@@ -327,5 +328,112 @@ describe('Dash tell art', () => {
     const up = dashPixels('up');
     expect(width(up, false)).toBeGreaterThan(width(up, true) + 4);
     expect(dashPixels('left').data).not.toEqual(right.data);
+  });
+});
+
+/** The phase, read fresh (TypeScript would narrow `state.phase` after an assignment). */
+const phaseOf = (s: GameState): string => s.phase;
+
+describe('Lunge (WW-10)', () => {
+  const row3 = levelRow(3);
+  const lunge = row3.lunge as NonNullable<LevelRow['lunge']>;
+  const grid = ['#########', '#.......#', '#.##.##.#', '#.......#', '#########'];
+  const open = (x: number, y: number): boolean => (grid[y]?.[x] ?? '#') !== '#';
+  const corridorMaze = {
+    seed: 0,
+    width: 9,
+    height: 5,
+    grid,
+    start: { x: 6, y: 3 },
+    house: { x0: 0, x1: 0, y0: 4, y1: 4 },
+    tunnelY: -1,
+  };
+
+  it('is off before maze 3 and on from maze 3, with a tell of at least 0.5 s', () => {
+    expect(levelRow(1).lunge).toBeNull();
+    expect(levelRow(2).lunge).toBeNull();
+    expect(lunge.tell).toBeGreaterThanOrEqual(0.5);
+    expect(lunge.minRange).toBeGreaterThan(1);
+  });
+
+  it('starts only when the hero is 2-3 tiles straight ahead along open tiles', () => {
+    const gnashAt = (x: number, dir: Opponent['dir']): Opponent => ({
+      ...(createOpponents(maze)[1] as Opponent),
+      state: 'out',
+      x,
+      y: 1,
+      dir,
+    });
+    const can = (g: Opponent, hero: { x: number; y: number }): string | null =>
+      lungeCanStart(createSpecials(), ctx({ row: row3, hero, open }), g);
+    expect(can(gnashAt(1, 'right'), { x: 2, y: 1 })).toBeNull(); // 1 tile: too close
+    expect(can(gnashAt(1, 'right'), { x: 3, y: 1 })).toBe('right');
+    expect(can(gnashAt(1, 'right'), { x: 4, y: 1 })).toBe('right');
+    expect(can(gnashAt(1, 'right'), { x: 5, y: 1 })).toBeNull(); // 4 tiles: too far
+    expect(can(gnashAt(4, 'left'), { x: 6, y: 1 })).toBeNull(); // behind
+    expect(can(gnashAt(1.5, 'right'), { x: 4, y: 1 })).toBeNull(); // not on a centre
+  });
+
+  it('in a game: stops to bare its teeth, jumps 2 tiles at x3, pauses, then cools down', () => {
+    const state = createGame(corridorMaze, { level: 3 });
+    state.phase = 'playing';
+    state.modeClock = { index: 1, time: 0 };
+    const gnash = state.opponents[1] as Opponent;
+    Object.assign(gnash, { state: 'out', x: 1, y: 1, dir: 'right' });
+    // The hero is parked out of reach, so the lunge misses.
+    const step = (): void => {
+      for (const i of [0, 2, 3])
+        Object.assign(state.opponents[i] as Opponent, { state: 'waiting', x: -20 });
+      Object.assign(state.hero, { x: 7, y: 3, moving: false });
+      stepGame(state, DT);
+    };
+    primeSpecial(state.specials, 1);
+    step();
+    expect(state.specials[1]).toMatchObject({ phase: 'tell', aim: 'right', from: { x: 1, y: 1 } });
+    expect(gnash.x).toBe(1);
+    for (let i = 0; i < lunge.tell * STEP_HZ + 1; i++) step();
+    expect(state.specials[1]?.phase).toBe('active');
+    const x0 = gnash.x;
+    step();
+    expect(gnash.x - x0).toBeCloseTo(row3.opponentSpeed * lunge.factor * DT, 5);
+    for (let i = 0; i < STEP_HZ && state.specials[1]?.phase === 'active'; i++) step();
+    expect(gnash).toMatchObject({ x: 1 + lunge.jump, y: 1 });
+    expect(state.specials[1]?.phase).toBe('recover');
+    step();
+    expect(gnash.x).toBe(1 + lunge.jump); // shaking its head, not moving
+    for (let i = 0; i < lunge.recover * STEP_HZ + 1; i++) step();
+    expect(state.specials[1]).toMatchObject({ phase: 'ready', cool: expect.any(Number) });
+    expect(state.specials[1]?.cool).toBeGreaterThan(lunge.cooldown - 0.2);
+  });
+
+  it('a lunge that reaches the hero catches it', () => {
+    const state = createGame(corridorMaze, { level: 3 });
+    state.phase = 'playing';
+    state.modeClock = { index: 1, time: 0 };
+    const gnash = state.opponents[1] as Opponent;
+    Object.assign(gnash, { state: 'out', x: 1, y: 1, dir: 'right' });
+    let caught = false;
+    for (let i = 0; i < 2 * STEP_HZ && !caught; i++) {
+      for (const j of [0, 2, 3])
+        Object.assign(state.opponents[j] as Opponent, { state: 'waiting', x: -20 });
+      if (state.phase === 'playing') Object.assign(state.hero, { x: 3, y: 1, moving: false });
+      stepGame(state, DT);
+      caught = phaseOf(state) === 'dying';
+    }
+    expect(caught).toBe(true);
+  });
+});
+
+describe('Lunge tell art', () => {
+  it('opens Gnash wide with teeth top and bottom', () => {
+    const art = lungePixels('left');
+    const colourAt = (x: number, y: number): number => {
+      const i = (y * art.width + x) * 4;
+      return ((art.data[i] ?? 0) << 16) | ((art.data[i + 1] ?? 0) << 8) | (art.data[i + 2] ?? 0);
+    };
+    expect(colourAt(3, 7)).toBe(NEON.gnashTeeth);
+    expect(colourAt(3, 12)).toBe(NEON.gnashTeeth);
+    expect(colourAt(6, 9)).toBe(NEON.opponentOutline);
+    expect(lungePixels('right').data).not.toEqual(art.data);
   });
 });

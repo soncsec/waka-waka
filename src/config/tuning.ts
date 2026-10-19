@@ -68,6 +68,23 @@ export interface LevelRow {
   frenzy: FrenzyRow | null;
   /** Bolt's Dash (WW-10); null while it is off. */
   dash: DashRow | null;
+  /** Gnash's Lunge (WW-10); null while it is off. */
+  lunge: LungeRow | null;
+}
+
+/**
+ * Lunge: when the hero is `minRange`..`maxRange` tiles straight ahead, Gnash stops
+ * for `tell` seconds, jumps `jump` tiles at `factor` speed, and if it misses pauses
+ * for `recover` seconds; it may not lunge again for `cooldown` seconds.
+ */
+export interface LungeRow {
+  minRange: number;
+  maxRange: number;
+  tell: number;
+  jump: number;
+  factor: number;
+  recover: number;
+  cooldown: number;
 }
 
 /**
@@ -116,12 +133,21 @@ const MAZE_1: LevelRow = {
   tunnelSpeed: 3.5,
   frenzy: { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 },
   dash: null,
+  lunge: null,
 };
+
+const DASH: DashRow = { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 };
 
 export const LEVELS: readonly LevelRow[] = [
   MAZE_1,
   // Maze 2: Bolt's Dash switches on (PROJECT.md, WW-10).
-  { ...MAZE_1, dash: { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 } },
+  { ...MAZE_1, dash: DASH },
+  // Maze 3: Gnash's Lunge switches on.
+  {
+    ...MAZE_1,
+    dash: DASH,
+    lunge: { minRange: 2, maxRange: 3, tell: 0.5, jump: 2, factor: 3, recover: 0.5, cooldown: 8 },
+  },
 ];
 
 /** Round rules. Times are in seconds. */
@@ -143,9 +169,11 @@ export const ROUND = {
   maxLives: 5,
 } as const;
 
-/** Bolt's Dash tell (WW-10): the dotted line's dot size in pixels. */
+/** Special-move art (WW-10): Bolt's dotted aim line, and Gnash's head shake after a missed Lunge. */
 export const DASH_ART = {
   dotSize: 3,
+  /** Head shakes per second (one pixel each way). */
+  shakeHz: 12,
 } as const;
 
 /** Scared opponents flash for the last `flashSeconds` of the scare, `flashHz` times a second. */
