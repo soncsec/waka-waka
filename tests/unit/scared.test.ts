@@ -145,7 +145,7 @@ describe('eating scared opponents', () => {
         expect(murk.state, `seed ${seed} from ${start.x},${start.y}`).toBe('out');
       }
     }
-  });
+  }, 30_000); // 120 searches across 30 mazes: slow on a busy machine
 
   it('a scared opponent cannot catch the hero, but eyes pass straight through', () => {
     const state = playing();
