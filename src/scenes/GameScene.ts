@@ -334,7 +334,13 @@ export class GameScene extends Phaser.Scene {
     if (!kb) throw new Error('keyboard input is not available');
     // Stop arrow keys scrolling the page while the game has focus.
     kb.addCapture('UP,DOWN,LEFT,RIGHT');
+    // Phaser re-sends a frame's earlier key events each time another key arrives
+    // in the same frame, so handle each event once: otherwise P or Esc can toggle
+    // the pause twice and cancel itself.
+    const handled = new WeakSet<KeyboardEvent>();
     kb.on('keydown', (e: KeyboardEvent) => {
+      if (handled.has(e)) return;
+      handled.add(e);
       if (this.restartIfOver()) return;
       if (PAUSE_KEYS.has(e.code)) {
         this.pause(!this.state.paused);

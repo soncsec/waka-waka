@@ -357,6 +357,28 @@ test.describe('pause (M4.4)', () => {
     expect(watched.errors).toEqual([]);
   });
 
+  test('P then Esc within one frame pauses and carries on, once each', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    // Fire the key events back to back, so they all land before the next frame.
+    const paused = await page.evaluate(() => {
+      const fire = (type: string, code: string, keyCode: number): void => {
+        const e = new KeyboardEvent(type, { code, key: code, bubbles: true });
+        Object.defineProperty(e, 'keyCode', { get: () => keyCode });
+        window.dispatchEvent(e);
+      };
+      fire('keydown', 'KeyP', 80);
+      fire('keyup', 'KeyP', 80);
+      const afterP = window.__game?.snapshot()?.paused ?? null;
+      fire('keydown', 'Escape', 27);
+      fire('keyup', 'Escape', 27);
+      return [afterP, window.__game?.snapshot()?.paused ?? null];
+    });
+    expect(paused).toEqual([true, false]);
+  });
+
   test('losing focus pauses, and a tap carries on', async ({ page }) => {
     await openGame(page, '?seed=7');
     await expect
