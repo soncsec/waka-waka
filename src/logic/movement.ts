@@ -118,10 +118,15 @@ export function steer(
   choose: (m: Mover) => Dir,
   open: OpenFn,
   width: number,
+  stop?: (m: Mover) => boolean,
 ): void {
   let left = distance;
   for (let guard = 0; left > 0 && guard < 64; guard++) {
-    if (Number.isInteger(m.x) && Number.isInteger(m.y)) m.dir = choose(m);
+    if (Number.isInteger(m.x) && Number.isInteger(m.y)) {
+      // `stop` ends the move at a tile centre (eyes reaching the house).
+      if (stop?.(m)) return;
+      m.dir = choose(m);
+    }
     const d = Math.min(left, toNextCentre(m));
     move(m, null, d, open, width);
     if (!m.moving) return;
@@ -160,4 +165,56 @@ export function gap(a: Point, b: Point, width: number): number {
 /** The tile an actor is in: its position rounded, wrapped into the maze. */
 export function tileOf(p: Point, width: number): Point {
   return { x: ((Math.round(p.x) % width) + width) % width, y: Math.round(p.y) };
+}
+
+/** A random open direction, not reversing (scared opponents, WW-02). Uses the seeded RNG. */
+export function chooseRandom(m: Mover, open: OpenFn, pick: (dirs: readonly Dir[]) => Dir): Dir {
+  const options = DIRS.filter((dir) => {
+    if (dir === OPPOSITE[m.dir]) return false;
+    const [dx, dy] = DIR_VEC[dir];
+    return open(m.x + dx, m.y + dy);
+  });
+  return options.length > 0 ? pick(options) : OPPOSITE[m.dir];
+}
+
+/**
+ * The first step of a shortest path from `m` (at a tile centre) to `target`,
+ * by breadth-first search over open tiles; reversing is allowed. Used only by
+ * eaten opponents' eyes, which must always find the house: greedy targeting can
+ * circle a block for ever in a generated maze. Chasing keeps `chooseToward` (WW-02).
+ */
+export function chooseShortest(
+  m: Mover,
+  target: Point,
+  open: OpenFn,
+  width: number,
+  height: number,
+): Dir {
+  const wrap = (x: number): number => ((x % width) + width) % width;
+  const key = (x: number, y: number): number => y * width + wrap(x);
+  const dist = new Map<number, number>([[key(target.x, target.y), 0]]);
+  const queue: Point[] = [target];
+  for (let head = 0; head < queue.length; head++) {
+    const p = queue[head] as Point;
+    const d = dist.get(key(p.x, p.y)) ?? 0;
+    for (const dir of DIRS) {
+      const [dx, dy] = DIR_VEC[dir];
+      const x = wrap(p.x + dx);
+      const y = p.y + dy;
+      if (y < 0 || y >= height || dist.has(key(x, y)) || !open(x, y)) continue;
+      dist.set(key(x, y), d + 1);
+      queue.push({ x, y });
+    }
+  }
+  let best: Dir = m.dir;
+  let bestDist = Infinity;
+  for (const dir of DIRS) {
+    const [dx, dy] = DIR_VEC[dir];
+    const d = dist.get(key(m.x + dx, m.y + dy));
+    if (d !== undefined && d < bestDist) {
+      bestDist = d;
+      best = dir;
+    }
+  }
+  return best;
 }

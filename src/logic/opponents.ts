@@ -10,13 +10,17 @@ export type OpponentName = (typeof OPPONENT_NAMES)[number];
 /**
  * - waiting: bobbing inside the ghost house.
  * - leaving: heading out through the door.
- * - out: hunting in the maze.
+ * - out: hunting in the maze (or fleeing while scared).
+ * - eyes: eaten; racing back to the door.
+ * - entering: eyes dropping through the door into the house, then leaving again.
  */
-export type OpponentState = 'waiting' | 'leaving' | 'out';
+export type OpponentState = 'waiting' | 'leaving' | 'out' | 'eyes' | 'entering';
 
 export interface Opponent extends Mover {
   name: OpponentName;
   state: OpponentState;
+  /** Scared by a power pellet: slow, wandering and edible (M2.3). */
+  scared: boolean;
 }
 
 /** The corridor tile just above the ghost-house door, where opponents come out. */
@@ -48,7 +52,14 @@ export function createOpponents(maze: Maze): Opponent[] {
     dir: name === 'murk' ? OPPONENTS.startDir : 'up',
     moving: true,
     state: name === 'murk' ? 'out' : 'waiting',
+    scared: false,
   }));
+}
+
+/** The corridor tile next to the door where eyes turn in (the exit can sit between two tiles). */
+export function eyesTarget(maze: Maze): Point {
+  const exit = houseExit(maze);
+  return { x: Math.floor(exit.x), y: exit.y };
 }
 
 /** Corner each opponent heads for when it holds back (Wisp) or scatters (M2.2). */
@@ -132,6 +143,19 @@ export function mayLeave(
 export function moveInHouse(o: Opponent, maze: Maze, distance: number): boolean {
   const exit = houseExit(maze);
   const middle = (maze.house.y0 + maze.house.y1) / 2;
+  if (o.state === 'entering') {
+    // Line up with the door, then drop to the middle of the house and leave again.
+    if (o.x !== exit.x) {
+      const step = Math.min(distance, Math.abs(exit.x - o.x));
+      o.dir = exit.x > o.x ? 'right' : 'left';
+      o.x += Math.sign(exit.x - o.x) * step;
+      return false;
+    }
+    o.dir = 'down';
+    o.y = Math.min(middle, o.y + distance);
+    if (o.y === middle) o.state = 'leaving';
+    return false;
+  }
   if (o.state === 'waiting') {
     const top = middle - OPPONENTS.bob;
     const bottom = middle + OPPONENTS.bob;

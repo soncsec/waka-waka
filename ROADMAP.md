@@ -41,7 +41,7 @@
 - [x] M2.0 Live quick wins from the 2026-10-18 product review: a cleared maze shows MAZE CLEARED and loads a new one, a controls hint under READY!, and the run seed on the game-over screen
 - [x] M2.1 All four opponents with their targets; the ghost house and release order (WW-02); the difficulty table from WW-07 with its first row
 - [x] M2.2 Scatter and chase scheduler with reversals
-- [ ] M2.3 Power pellets: scared opponents, eating them for rising points, eyes return to the house
+- [x] M2.3 Power pellets: scared opponents, eating them for rising points, eyes return to the house
 - [ ] M2.4 Wrap-around tunnel (opponents slow inside)
 - [ ] M2.5 Extra life; high score in localStorage, validated (WW-08)
 - [ ] M2.6 Owner playtest on desktop and on a phone or tablet; the notes become a tuning PR
