@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HERO, OPPONENTS, ROUND, SCORE, STEP_HZ } from '../../src/config/tuning';
 import {
+  addScore,
   clearMaze,
   createGame,
   modeOf,
@@ -183,11 +184,43 @@ describe('scatter and chase in a game', () => {
   });
 });
 
+describe('the extra life (M2.5)', () => {
+  it('gives one life when the score first reaches the threshold, and only once', () => {
+    const state = createGame(corridors());
+    addScore(state, ROUND.extraLifeAt - 10);
+    expect(state.lives).toBe(ROUND.lives);
+    addScore(state, 10);
+    expect(state).toMatchObject({ lives: ROUND.lives + 1, extraLifeGiven: true });
+    addScore(state, ROUND.extraLifeAt * 3);
+    expect(state.lives).toBe(ROUND.lives + 1);
+  });
+
+  it('is not given again on the next maze', () => {
+    const state = createGame(corridors(), {
+      level: 2,
+      carry: { score: ROUND.extraLifeAt + 5, lives: 2, extraLifeGiven: true },
+    });
+    addScore(state, 100);
+    expect(state.lives).toBe(2);
+  });
+
+  it('never goes past the most lives the HUD can show', () => {
+    const state = createGame(corridors(), {
+      carry: { score: 0, lives: ROUND.maxLives, extraLifeGiven: false },
+    });
+    addScore(state, ROUND.extraLifeAt);
+    expect(state.lives).toBe(ROUND.maxLives);
+  });
+});
+
 describe('the next maze', () => {
   it('keeps the score and lives carried over from the last maze', () => {
-    const state = createGame(corridors(), { level: 2, carry: { score: 1230, lives: 2 } });
+    const state = createGame(corridors(), {
+      level: 2,
+      carry: { score: 1230, lives: 2, extraLifeGiven: true },
+    });
     expect(state.level).toBe(2);
-    expect(state).toMatchObject({ score: 1230, lives: 2, phase: 'ready' });
+    expect(state).toMatchObject({ score: 1230, lives: 2, extraLifeGiven: true, phase: 'ready' });
     expect(state.dotsLeft).toBe(2);
   });
 

@@ -52,6 +52,8 @@ export interface GameState {
   wanted: Dir | null;
   score: number;
   lives: number;
+  /** Whether the extra life for reaching `ROUND.extraLifeAt` has been given. */
+  extraLifeGiven: boolean;
   dotsLeft: number;
   phase: Phase;
   /** Seconds spent in the current phase. */
@@ -81,6 +83,8 @@ const SCARED_RNG_STREAM = 0x5ca7ed;
 export interface Carry {
   score: number;
   lives: number;
+  /** Whether this game's extra life has been given already. */
+  extraLifeGiven: boolean;
 }
 
 export interface GameOptions {
@@ -102,6 +106,7 @@ export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): 
     wanted: null,
     score: carry?.score ?? 0,
     lives: carry?.lives ?? ROUND.lives,
+    extraLifeGiven: carry?.extraLifeGiven ?? false,
     dotsLeft,
     phase: 'ready',
     phaseTime: 0,
@@ -139,6 +144,15 @@ export function powerUp(state: GameState): void {
     if (o.state !== 'out') continue;
     o.dir = OPPOSITE[o.dir];
     o.scared = state.scaredTime > 0;
+  }
+}
+
+/** Adds points; the first time the score reaches `ROUND.extraLifeAt`, gives a life (M2.5). */
+export function addScore(state: GameState, points: number): void {
+  state.score += points;
+  if (!state.extraLifeGiven && state.score >= ROUND.extraLifeAt) {
+    state.extraLifeGiven = true;
+    state.lives = Math.min(state.lives + 1, ROUND.maxLives);
   }
 }
 
@@ -216,7 +230,7 @@ function play(state: GameState, dt: number): Eaten[] {
   if (c === TILE.dot || c === TILE.pellet) {
     (state.tiles[t.y] as string[])[t.x] = TILE.empty;
     const kind = c === TILE.dot ? 'dot' : 'pellet';
-    state.score += SCORE[kind];
+    addScore(state, SCORE[kind]);
     state.dotsLeft--;
     eaten.push({ ...t, kind });
     if (kind === 'pellet') powerUp(state);
@@ -238,7 +252,7 @@ function play(state: GameState, dt: number): Eaten[] {
     if (o.state !== 'out' || gap(state.hero, o, maze.width) >= ROUND.catchDistance) continue;
     if (o.scared) {
       // Eaten: points rise with each opponent on the same pellet; the eyes go home.
-      state.score += SCORE.eaten[Math.min(state.eatChain, SCORE.eaten.length - 1)] ?? 0;
+      addScore(state, SCORE.eaten[Math.min(state.eatChain, SCORE.eaten.length - 1)] ?? 0);
       state.eatChain++;
       o.scared = false;
       o.state = 'eyes';

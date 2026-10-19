@@ -106,6 +106,10 @@ export const ROUND = {
   catchDistance: 0.5,
   /** Game over ignores input this long, so a last swipe doesn't restart at once. */
   restartDelay: 1,
+  /** One extra life when the score first reaches this. */
+  extraLifeAt: 10_000,
+  /** Most lives a player can hold (the HUD has room for this many minus one). */
+  maxLives: 5,
 } as const;
 
 /** Scared opponents flash for the last `flashSeconds` of the scare, `flashHz` times a second. */
@@ -127,6 +131,13 @@ export const SCORE = {
   pellet: 50,
   /** Points for each scared opponent eaten on one pellet, in order; the last repeats. */
   eaten: [200, 400, 800, 1600],
+} as const;
+
+/** High score (WW-08): the only thing kept in localStorage. */
+export const HIGH_SCORE = {
+  storageKey: 'waka-waka.highScore',
+  /** Longest stored value accepted, in digits (Number.MAX_SAFE_INTEGER has 16). */
+  maxDigits: 16,
 } as const;
 
 /** Touch controls (WW-06). */
