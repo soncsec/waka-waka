@@ -12,6 +12,7 @@ import {
   GAME_HEIGHT,
   GAME_WIDTH,
   HERO,
+  HIGH_SCORE,
   HUD,
   HUD_HEIGHT,
   MAX_STEPS_PER_FRAME,
@@ -39,6 +40,7 @@ import {
 import { buildMaze, TILE } from '../logic/maze';
 import { DIRS, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
+import { formatHighScore, parseHighScore } from '../logic/highscore';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
 
@@ -60,6 +62,8 @@ export interface GameSnapshot {
   wanted: Dir | null;
   score: number;
   lives: number;
+  /** Best score shown in the HUD. */
+  highScore: number;
   phase: Phase;
   /** scatter or chase (WW-02). */
   mode: 'scatter' | 'chase';
@@ -118,6 +122,10 @@ export class GameScene extends Phaser.Scene {
   private hero!: Phaser.GameObjects.Image;
   private opponents: Phaser.GameObjects.Image[] = [];
   private scoreText!: Phaser.GameObjects.Text;
+  private hiText!: Phaser.GameObjects.Text;
+  /** Best score so far (WW-08): loaded once per scene start, saved on clear, game over and page hide. */
+  private highScore = 0;
+  private savedHighScore = 0;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private message!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
@@ -147,6 +155,8 @@ export class GameScene extends Phaser.Scene {
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
     this.state = createGame(built.maze, { level: this.level, carry: this.carry });
+    this.highScore = this.loadHighScore();
+    this.savedHighScore = this.highScore;
 
     this.makeTextures();
     this.drawMaze();
@@ -172,12 +182,17 @@ export class GameScene extends Phaser.Scene {
     if (steps === MAX_STEPS_PER_FRAME) this.pending = 0;
 
     if (nextMazeDue(this.state)) {
-      const { score, lives } = this.state;
-      this.scene.restart({ seed: this.seed, level: this.level + 1, carry: { score, lives } });
+      const { score, lives, extraLifeGiven } = this.state;
+      this.saveHighScore();
+      const carry = { score, lives, extraLifeGiven };
+      this.scene.restart({ seed: this.seed, level: this.level + 1, carry });
       return;
     }
 
     this.scoreText.setText(String(this.state.score).padStart(6, '0'));
+    if (this.state.score > this.highScore) this.highScore = this.state.score;
+    this.hiText.setText(String(this.highScore).padStart(6, '0'));
+    if (this.state.phase === 'gameover') this.saveHighScore();
     this.placeActors(time);
     this.showPhase();
     const lit =
@@ -203,6 +218,7 @@ export class GameScene extends Phaser.Scene {
       wanted: this.state.wanted,
       score: this.state.score,
       lives: this.state.lives,
+      highScore: this.highScore,
       phase: this.state.phase,
       mode: modeOf(this.state),
       dotsLeft: this.state.dotsLeft,
@@ -213,6 +229,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Test hook: clears the maze at once. */
+  /**
+   * The stored high score, validated (WW-08). An invalid value is reset; storage
+   * that is blocked or full is ignored, and the game plays on without it.
+   */
+  private loadHighScore(): number {
+    try {
+      const raw = window.localStorage.getItem(HIGH_SCORE.storageKey);
+      const best = parseHighScore(raw);
+      if (raw !== null && raw !== formatHighScore(best)) {
+        window.localStorage.setItem(HIGH_SCORE.storageKey, formatHighScore(best));
+      }
+      return best;
+    } catch {
+      return 0;
+    }
+  }
+
+  private saveHighScore(): void {
+    if (this.highScore <= this.savedHighScore) return;
+    try {
+      window.localStorage.setItem(HIGH_SCORE.storageKey, formatHighScore(this.highScore));
+      this.savedHighScore = this.highScore;
+    } catch {
+      // Storage blocked (private mode, quota): keep playing without saving.
+    }
+  }
+
   /** Test hook: the effect of a power pellet, without walking to one. */
   powerUp(): void {
     powerUp(this.state);
@@ -260,7 +303,12 @@ export class GameScene extends Phaser.Scene {
     });
 
     // The scene is reused for the next game: drop these listeners when it shuts down.
+    // Save the high score if the player leaves mid-game.
+    const onHide = (): void => this.saveHighScore();
+    window.addEventListener('pagehide', onHide);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('pagehide', onHide);
       kb.removeAllListeners('keydown');
       this.input.removeAllListeners('pointerdown');
       this.input.removeAllListeners('pointermove');
@@ -450,11 +498,12 @@ export class GameScene extends Phaser.Scene {
     const label = this.add.text(m, top, 'SCORE', dim);
     this.scoreText = this.add.text(m + label.width + HUD.fontSize, top, '000000', style);
     const hi = this.add.text(GAME_WIDTH - m, top, '000000', style).setOrigin(1, 0);
+    this.hiText = hi;
     this.add.text(hi.x - hi.width - HUD.fontSize, top, 'HI', dim).setOrigin(1, 0);
     this.add.text(GAME_WIDTH - m, bottom, `MAZE ${this.level}`, style).setOrigin(1, 0);
     // Spare lives, bottom left.
     const iconY = GAME_HEIGHT - HUD_HEIGHT / 2;
-    for (let i = 0; i < ROUND.lives - 1; i++) {
+    for (let i = 0; i < ROUND.maxLives - 1; i++) {
       const x = m + TILE_SIZE / 2 + i * (TILE_SIZE + 2);
       this.lifeIcons.push(this.add.image(x, iconY, heroTexture('right', 1)));
     }

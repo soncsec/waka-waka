@@ -28,6 +28,7 @@ src/
 │   ├── movement       grid movement and turn buffering
 │   ├── opponents      the cast, chase and scatter targets, ghost house, release order, eyes going home (special moves later)
 │   ├── scheduler      scatter and chase phases from the difficulty row; each switch reverses the opponents
+│   ├── highscore      parse and format the stored high score (WW-08)
 │   ├── difficulty     the difficulty row for a maze number (WW-07)
 │   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
