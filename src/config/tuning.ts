@@ -62,6 +62,8 @@ export interface LevelRow {
   scaredSeconds: number;
   /** Speed of a scared opponent, in tiles per second. */
   scaredSpeed: number;
+  /** Top speed of an opponent inside the wrap-around tunnel, in tiles per second (M2.4). */
+  tunnelSpeed: number;
 }
 
 export interface ModePhase {
@@ -87,6 +89,7 @@ export const LEVELS: readonly LevelRow[] = [
     ],
     scaredSeconds: 6,
     scaredSpeed: 4.5,
+    tunnelSpeed: 3.5,
   },
 ];
 

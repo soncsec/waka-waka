@@ -20,6 +20,7 @@ import {
   chaseTarget,
   createOpponents,
   eyesTarget,
+  inTunnel,
   mayLeave,
   moveInHouse,
   type Opponent,
@@ -289,12 +290,14 @@ function moveOpponents(
       moveInHouse(o, maze, speed * dt);
       continue;
     }
+    // Opponents crawl through the tunnel (M2.4); eyes do not.
+    const cap = inTunnel(maze, o) ? state.row.tunnelSpeed : Infinity;
     if (o.scared) {
       const wander = (m: Mover): Dir => chooseRandom(m, open, pick);
-      steer(o, state.row.scaredSpeed * dt, wander, open, maze.width);
+      steer(o, Math.min(state.row.scaredSpeed, cap) * dt, wander, open, maze.width);
       continue;
     }
     const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
-    steer(o, state.row.opponentSpeed * dt, choose, open, maze.width);
+    steer(o, Math.min(state.row.opponentSpeed, cap) * dt, choose, open, maze.width);
   }
 }
