@@ -64,6 +64,17 @@ export interface LevelRow {
   scaredSpeed: number;
   /** Top speed of an opponent inside the wrap-around tunnel, in tiles per second (M2.4). */
   tunnelSpeed: number;
+  /** Murk's Frenzy (WW-10, docs/SPECIAL-MOVES.md); null while it is off. */
+  frenzy: FrenzyRow | null;
+}
+
+/** Frenzy: after `every` seconds of chase, a `tell` at `tellSpeed`, then `burst` seconds at `factor`. */
+export interface FrenzyRow {
+  every: number;
+  tell: number;
+  tellSpeed: number;
+  burst: number;
+  factor: number;
 }
 
 export interface ModePhase {
@@ -90,6 +101,7 @@ export const LEVELS: readonly LevelRow[] = [
     scaredSeconds: 6,
     scaredSpeed: 4.5,
     tunnelSpeed: 3.5,
+    frenzy: { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 },
   },
 ];
 
@@ -123,6 +135,8 @@ export const OPPONENT_ART = {
   frames: 6,
   frameHz: 6,
   bobHz: 4,
+  /** How much faster Murk's spikes spin during Frenzy (WW-10). */
+  frenzySpin: 4,
 } as const;
 
 /** Points. */
@@ -173,6 +187,8 @@ export const NEON = {
   scaredFace: 0x9aa3d6,
   scaredFlash: 0x4a1640,
   scaredFlashFace: 0xff7ae0,
+  /** Murk's Frenzy tell: white-hot spikes (WW-10). */
+  frenzyHot: 0xfff0f4,
   /** An eaten opponent travels home as a spark. */
   sparkCore: 0xffffff,
   sparkRay: 0x7af7ff,

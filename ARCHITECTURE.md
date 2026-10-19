@@ -29,6 +29,7 @@ src/
 │   ├── opponents      the cast, chase and scatter targets, ghost house, release order, eyes going home (special moves later)
 │   ├── scheduler      scatter and chase phases from the difficulty row; each switch reverses the opponents
 │   ├── highscore      parse and format the stored high score (WW-08)
+│   ├── specials       special moves: one state machine per opponent, fairness rules (WW-10)
 │   ├── difficulty     the difficulty row for a maze number (WW-07)
 │   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
@@ -99,3 +100,9 @@ Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the
 - **Decision:** no audio until milestone M5. Then: short CC0 sound effects bundled locally, approved by the owner before they are added, listed in `CREDITS.md`, with a mute toggle (the mute setting is not stored).
 - **Alternatives:** synthesised sound in code.
 - **Why:** gameplay feedback comes first; sourcing sounds needs the owner's approval.
+
+### WW-10 Special moves
+
+- **Decision (approved by the owner on 2026-10-19):** each opponent has one special move, designed in [docs/SPECIAL-MOVES.md](docs/SPECIAL-MOVES.md): Frenzy (Murk, from maze 1), Dash (Bolt, maze 2), Lunge (Gnash, maze 3) and Phase (Wisp, maze 5). Each is a small state machine in `src/logic/specials.ts` (ready, tell, active). Fairness rules: a tell of at least 0.5 s always comes first and slows the opponent; only one opponent may be mid-move at a time; no moves while scared, as a spark, in the house, during GET SET! or (to start) in the tunnel; any randomness uses the seeded RNG; tells change shape or colour steadily, not only by flashing. Which moves are on and their numbers are columns of the difficulty table (WW-07).
+- **Alternatives:** moves that fire at random with no tell; letting several moves overlap on later mazes.
+- **Why:** the moves add variety and difficulty without feeling unfair: a player who watches can always react. Later mazes get harder through shorter cooldowns, not combined moves.

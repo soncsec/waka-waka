@@ -176,6 +176,20 @@ test.describe('high score (WW-08)', () => {
   });
 });
 
+test("Murk's Frenzy: a tell, then a burst, then ready again (WW-10)", async ({ page }) => {
+  test.setTimeout(60_000);
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  await expect.poll(async () => (await snapshot(page)).phase, { timeout: 15_000 }).toBe('playing');
+  await page.evaluate(() => window.__game?.primeSpecial(0));
+  // Frenzy charges only in chase, so it starts once the first scatter ends.
+  const special = async (): Promise<string> => (await snapshot(page)).opponents[0]?.special ?? '';
+  await expect.poll(special, { timeout: 30_000, intervals: [50] }).toBe('tell');
+  await expect.poll(special, { timeout: 5_000, intervals: [50] }).toBe('active');
+  await expect.poll(special, { timeout: 10_000, intervals: [100] }).toBe('ready');
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.

@@ -99,7 +99,13 @@ const LOOK: Readonly<Record<Dir, readonly [number, number]>> = {
  * An opponent (WW-04): its body shape in its colour with a dark outline, and two
  * eyes looking the way it moves. `frame` animates Murk's spikes and Wisp's skirt.
  */
-export function opponentPixels(who: OpponentIndex, dir: Dir, frame: number): Pixels {
+export function opponentPixels(
+  who: OpponentIndex,
+  dir: Dir,
+  frame: number,
+  /** Body colour; defaults to the opponent's own (the Frenzy tell uses white-hot). */
+  colour: number = NEON.opponents[who],
+): Pixels {
   const shape = SHAPES[who] as (typeof SHAPES)[number];
   const t = frame / 6;
   const body = (px: number, py: number): boolean => {
@@ -115,7 +121,7 @@ export function opponentPixels(who: OpponentIndex, dir: Dir, frame: number): Pix
       if (px >= ex && px < ex + 3 && py >= 5 && py < 8) return NEON.eyeWhite;
     }
     if (who === 1 && py === 11 && px >= 3 && px <= 12 && (px - 3) % 2 === 0) return NEON.gnashTeeth;
-    if (body(px, py)) return NEON.opponents[who];
+    if (body(px, py)) return colour;
     const touches = body(px + 1, py) || body(px - 1, py) || body(px, py + 1) || body(px, py - 1);
     return touches ? NEON.opponentOutline : null;
   });
