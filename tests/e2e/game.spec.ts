@@ -514,6 +514,44 @@ test.describe('the joystick (M4.1)', () => {
   });
 });
 
+test.describe('a phone held landscape (M4.2)', () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  test('shows the turn-upright prompt and pauses; upright, a tap carries on', async ({ page }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    const prompt = page.locator('.rotate-prompt');
+    await expect(prompt).toBeVisible();
+    await expect(prompt).toHaveText('TURN YOUR PHONE UPRIGHT TO PLAY');
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(true);
+    // Paused during GET SET!, so play doesn't start behind the prompt.
+    await page.waitForTimeout(2500);
+    expect((await snapshot(page)).phase).toBe('ready');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(prompt).toBeHidden();
+    expect((await snapshot(page)).paused).toBe(true);
+    await page.locator('#game canvas').click();
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(false);
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 10_000 })
+      .toBe('playing');
+
+    // Turned sideways again mid-game: the prompt returns and the game pauses.
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(prompt).toBeVisible();
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(true);
+    expect(watched.errors).toEqual([]);
+  });
+
+  test('a tablet held landscape plays without the prompt', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await openGame(page, '?seed=7');
+    await expect(page.locator('.rotate-prompt')).toBeHidden();
+    expect((await snapshot(page)).paused).toBe(false);
+  });
+});
+
 test.describe('on a touchscreen', () => {
   // Like a phone or tablet: the browser reports touch support, so Phaser listens for touch events.
   test.use({ hasTouch: true });

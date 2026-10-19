@@ -57,6 +57,7 @@ import { phaseExitOf, primeSpecial, type SpecialPhase } from '../logic/specials'
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
 import { createJoystick } from '../ui/joystick';
+import { createRotatePrompt } from '../ui/rotatePrompt';
 
 /** Read-only view of the game state, used by the e2e test hook. */
 export interface GameSnapshot {
@@ -391,6 +392,9 @@ export class GameScene extends Phaser.Scene {
         })
       : () => undefined;
 
+    // A phone held landscape gets a "turn upright" prompt, and the game pauses (M4.2).
+    const removeRotatePrompt = createRotatePrompt(() => this.pause(true));
+
     // The scene is reused for the next game: drop these listeners when it shuts down.
     // Save the high score if the player leaves mid-game.
     const onHide = (): void => this.saveHighScore();
@@ -403,6 +407,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('pagehide', onHide);
       removeJoystick();
+      removeRotatePrompt();
       this.game.events.off(Phaser.Core.Events.BLUR, onBlur);
       this.game.events.off(Phaser.Core.Events.HIDDEN, onBlur);
       kb.removeAllListeners('keydown');

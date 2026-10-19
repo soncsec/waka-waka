@@ -36,6 +36,7 @@ src/
 ├── art/               code-drawn pixel art, turned into textures at boot
 ├── scenes/            Phaser scenes: thin, call into logic/
 ├── ui/joystick.ts     the floating touch joystick, plain DOM around the canvas (WW-06)
+├── ui/rotatePrompt.ts "turn your phone upright" notice for phones held landscape (WW-05)
 └── debug/testHook.ts  window.__game for Playwright (e2e build only)
 tests/
 ├── unit/              Vitest, 80% coverage floor on src/logic

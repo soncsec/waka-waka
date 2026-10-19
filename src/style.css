@@ -55,3 +55,24 @@ canvas {
   background: #2ef2c8;
   box-shadow: 0 0 8px #2ef2c8;
 }
+
+/* "Turn your phone upright" (M4.2): covers the page while a phone is held landscape. */
+.rotate-prompt {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  line-height: 2;
+  background: #07051a;
+  color: #ff7ae0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 16px;
+  z-index: 10;
+}
+
+.rotate-on {
+  display: flex;
+}
