@@ -3,6 +3,7 @@ import { HERO, OPPONENTS, ROUND, SCORE, STEP_HZ } from '../../src/config/tuning'
 import {
   clearMaze,
   createGame,
+  modeOf,
   nextMazeDue,
   setWanted,
   stepGame,
@@ -151,6 +152,34 @@ describe('stepGame', () => {
     const before = structuredClone(state);
     for (let i = 0; i < STEP_HZ; i++) stepGame(state, DT);
     expect({ ...state, phaseTime: 0 }).toEqual({ ...before, phaseTime: 0 });
+  });
+});
+
+describe('scatter and chase in a game', () => {
+  it('starts in scatter, reverses Murk on the switch to chase, and restarts the clock each life', () => {
+    const state = createGame(fallbackMaze(1));
+    play(state);
+    expect(modeOf(state)).toBe('scatter');
+    const first = levelRow(1).modes[0]?.seconds ?? 0;
+    // Step until just before the switch, note Murk's direction, then cross it.
+    runUntil(state, () => state.modeClock.time >= first - DT * 1.5 || state.phase !== 'playing');
+    expect(state.phase).toBe('playing');
+    const murk = state.opponents[0];
+    const before = murk?.dir;
+    stepGame(state, DT);
+    stepGame(state, DT);
+    expect(modeOf(state)).toBe('chase');
+    // Reversed on the switch step; it may turn again at a tile centre, but never
+    // keeps going the old way on that same step.
+    expect(murk?.dir).not.toBe(before);
+  });
+
+  it('starts every life in scatter', () => {
+    const state = createGame(fallbackMaze(1));
+    runUntil(state, () => state.phase === 'dying', 120);
+    runUntil(state, () => state.phase === 'ready');
+    expect(state.modeClock).toEqual({ index: 0, time: 0 });
+    expect(modeOf(state)).toBe('scatter');
   });
 });
 
