@@ -45,7 +45,7 @@
 - [x] M2.4 Wrap-around tunnel (opponents slow inside)
 - [x] M2.5 Extra life; high score in localStorage, validated (WW-08)
 - [ ] M2.6 Owner playtest on desktop and on a phone or tablet; the notes become a tuning PR
-- [ ] M2.7 Originality review against Pac-Man names (including the game's own name), characters, mazes and trade dress
+- [x] M2.7 Originality review against Pac-Man names (including the game's own name), characters, mazes and trade dress
 
 **Acceptance criteria:**
 - The owner can tell the four opponents apart by how they move.

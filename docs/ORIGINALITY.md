@@ -37,7 +37,7 @@ PROJECT.md requires original names, shapes, colours and mazes, and nothing that 
 | 5 Targeting | Change the numbers | Gnash 3 ahead (was 4); Bolt pivots 3 ahead (was 2); Wisp shy within 6 (was 8) |
 | 6 Scatter/chase timing | Change | 6/22/6/22/4/25/4/∞ s |
 | 7 Extra life | Change | 12,000 |
-| 3 Scared look | Redesign, screenshots for approval | Separate PR |
+| 3 Scared look | Redesign, screenshots for approval | Short-circuited look (dark body, pale edge, spark line; pink when flashing); eaten opponents travel home as a spark |
 | 12, 13 Sound and bonus item | Rules for M5 and M3.3 | Added to the roadmap |
 | — Next production release | Only after these fixes | — |
 
