@@ -1,5 +1,12 @@
 import Phaser from 'phaser';
-import { HERO_MOUTH_FRAMES, heroPixels, opponentPixels } from '../art/sprites';
+import {
+  eyesPixels,
+  HERO_MOUTH_FRAMES,
+  heroPixels,
+  opponentPixels,
+  scaredPixels,
+  type OpponentLook,
+} from '../art/sprites';
 import { drawWalls, type Pixels } from '../art/walls';
 import {
   GAME_HEIGHT,
@@ -12,6 +19,7 @@ import {
   OPPONENT_ART,
   PICKUP_ART,
   ROUND,
+  SCARED_ART,
   STEP_HZ,
   SWIPE,
   TILE_SIZE,
@@ -21,6 +29,7 @@ import {
   createGame,
   modeOf,
   nextMazeDue,
+  powerUp,
   setWanted,
   stepGame,
   type Carry,
@@ -38,7 +47,16 @@ export interface GameSnapshot {
   seed: number;
   level: number;
   hero: { x: number; y: number; dir: Dir; moving: boolean };
-  opponents: { name: OpponentName; x: number; y: number; dir: Dir; state: OpponentState }[];
+  opponents: {
+    name: OpponentName;
+    x: number;
+    y: number;
+    dir: Dir;
+    state: OpponentState;
+    scared: boolean;
+  }[];
+  /** Seconds of scare left after a power pellet. */
+  scaredTime: number;
   wanted: Dir | null;
   score: number;
   lives: number;
@@ -55,6 +73,9 @@ export interface GameSnapshot {
 
 const PELLET_TEXTURE = 'pellet';
 const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
+const scaredTexture = (index: number, look: OpponentLook, frame: number): string =>
+  `scared-${index}-${look}-${frame}`;
+const eyesTexture = (dir: Dir): string => `eyes-${dir}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
 
@@ -170,13 +191,15 @@ export class GameScene extends Phaser.Scene {
       seed: this.seed,
       level: this.level,
       hero: { x: hero.x, y: hero.y, dir: hero.dir, moving: hero.moving },
-      opponents: this.state.opponents.map(({ name, x, y, dir, state }) => ({
+      opponents: this.state.opponents.map(({ name, x, y, dir, state, scared }) => ({
         name,
         x,
         y,
         dir,
         state,
+        scared,
       })),
+      scaredTime: this.state.scaredTime,
       wanted: this.state.wanted,
       score: this.state.score,
       lives: this.state.lives,
@@ -190,6 +213,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Test hook: clears the maze at once. */
+  /** Test hook: the effect of a power pellet, without walking to one. */
+  powerUp(): void {
+    powerUp(this.state);
+  }
+
   skipMaze(): void {
     clearMaze(this.state);
     this.redrawDots();
@@ -267,9 +295,23 @@ export class GameScene extends Phaser.Scene {
       const p = toScreen(o);
       // Only opponents out in the maze bob; the others already move up and down.
       const lift = o.state === 'out' ? bob : 0;
-      img.setPosition(p.x, p.y + lift).setTexture(opponentTexture(i, o.dir, mFrame));
+      img.setPosition(p.x, p.y + lift).setTexture(this.opponentKey(i, o, mFrame, seconds));
       img.setVisible(phase !== 'gameover');
     });
+  }
+
+  /** Texture for an opponent: eyes when eaten, blue when scared (flashing near the end). */
+  private opponentKey(
+    i: number,
+    o: GameState['opponents'][number],
+    frame: number,
+    seconds: number,
+  ): string {
+    if (o.state === 'eyes' || o.state === 'entering') return eyesTexture(o.dir);
+    if (!o.scared) return opponentTexture(i, o.dir, frame);
+    const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
+    const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
+    return scaredTexture(i, flash ? 'flash' : 'scared', frame);
   }
 
   /** Life icons, the READY message and the game-over panel follow the phase. */
@@ -365,6 +407,16 @@ export class GameScene extends Phaser.Scene {
           const key = opponentTexture(who, dir, frame);
           if (!this.textures.exists(key))
             this.addPixelTexture(key, opponentPixels(who, dir, frame));
+        }
+      }
+      const eyes = eyesTexture(dir);
+      if (!this.textures.exists(eyes)) this.addPixelTexture(eyes, eyesPixels(dir));
+    }
+    for (let frame = 0; frame < OPPONENT_ART.frames; frame++) {
+      for (const who of [0, 1, 2, 3] as const) {
+        for (const look of ['scared', 'flash'] as const) {
+          const key = scaredTexture(who, look, frame);
+          if (!this.textures.exists(key)) this.addPixelTexture(key, scaredPixels(who, look, frame));
         }
       }
     }

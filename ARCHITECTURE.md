@@ -26,7 +26,7 @@ src/
 ├── logic/             game rules: plain TypeScript, no Phaser imports (ESLint enforces), unit tested
 │   ├── maze/          generator, validator, fallback maze
 │   ├── movement       grid movement and turn buffering
-│   ├── opponents      the cast, chase and scatter targets, ghost house and release order (special moves later)
+│   ├── opponents      the cast, chase and scatter targets, ghost house, release order, eyes going home (special moves later)
 │   ├── scheduler      scatter and chase phases from the difficulty row; each switch reverses the opponents
 │   ├── difficulty     the difficulty row for a maze number (WW-07)
 │   └── game           dots, score, lives, phases, the next maze

@@ -36,6 +36,8 @@ export const OPPONENTS = {
   houseSpacing: 2,
   /** How far waiting opponents bob up and down from the house centre. */
   bob: 0.5,
+  /** Speed of an eaten opponent's eyes on their way back to the house. */
+  eyesSpeed: 14,
 } as const;
 
 /**
@@ -56,6 +58,10 @@ export interface LevelRow {
    * for ever. Every switch reverses the opponents out in the maze.
    */
   modes: readonly ModePhase[];
+  /** How long a power pellet scares the opponents, in seconds; 0 only turns them around. */
+  scaredSeconds: number;
+  /** Speed of a scared opponent, in tiles per second. */
+  scaredSpeed: number;
 }
 
 export interface ModePhase {
@@ -79,6 +85,8 @@ export const LEVELS: readonly LevelRow[] = [
       { mode: 'scatter', seconds: 5 },
       { mode: 'chase', seconds: Infinity },
     ],
+    scaredSeconds: 6,
+    scaredSpeed: 4.5,
   },
 ];
 
@@ -97,6 +105,12 @@ export const ROUND = {
   restartDelay: 1,
 } as const;
 
+/** Scared opponents flash for the last `flashSeconds` of the scare, `flashHz` times a second. */
+export const SCARED_ART = {
+  flashSeconds: 2,
+  flashHz: 4,
+} as const;
+
 /** Opponent animation: body frames per second, and the bob up and down. */
 export const OPPONENT_ART = {
   frames: 6,
@@ -108,6 +122,8 @@ export const OPPONENT_ART = {
 export const SCORE = {
   dot: 10,
   pellet: 50,
+  /** Points for each scared opponent eaten on one pellet, in order; the last repeats. */
+  eaten: [200, 400, 800, 1600],
 } as const;
 
 /** Touch controls (WW-06). */
@@ -136,6 +152,11 @@ export const NEON = {
   /** Opponent bodies: Murk, Gnash, Bolt, Wisp. */
   opponents: [0xff4d7e, 0xff9f1c, 0xffe14d, 0xb28dff],
   opponentOutline: 0x0b0820,
+  /** Scared opponents: body and face, then the flash colours near the end. */
+  scared: 0x2b4dff,
+  scaredFace: 0xffd0f0,
+  scaredFlash: 0xf4f0ff,
+  scaredFlashFace: 0xff3df2,
   eyeWhite: 0xffffff,
   pupil: 0x151040,
   gnashTeeth: 0xfff8e0,

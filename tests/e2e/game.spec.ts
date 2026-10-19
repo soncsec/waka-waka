@@ -115,6 +115,19 @@ test('opponents start each game scattering to their corners', async ({ page }) =
   expect((await snapshot(page)).mode).toBe('scatter');
 });
 
+test('a power pellet scares the opponents for a while, without errors', async ({ page }) => {
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  await expect.poll(async () => (await snapshot(page)).phase, { timeout: 15_000 }).toBe('playing');
+  await page.evaluate(() => window.__game?.powerUp());
+  const scared = await snapshot(page);
+  expect(scared.scaredTime).toBeGreaterThan(0);
+  expect(scared.opponents.filter((o) => o.state === 'out').every((o) => o.scared)).toBe(true);
+  await expect.poll(async () => (await snapshot(page)).scaredTime, { timeout: 20_000 }).toBe(0);
+  expect((await snapshot(page)).opponents.some((o) => o.scared)).toBe(false);
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.

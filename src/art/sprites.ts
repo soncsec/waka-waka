@@ -120,3 +120,46 @@ export function opponentPixels(who: OpponentIndex, dir: Dir, frame: number): Pix
     return touches ? NEON.opponentOutline : null;
   });
 }
+
+/** How an opponent is drawn: normal, scared (M2.3), scared and flashing, or eaten (eyes only). */
+export type OpponentLook = 'scared' | 'flash';
+
+/**
+ * A scared opponent keeps its own shape, so players can still tell them apart,
+ * but turns blue (white when flashing) with a small dotted face and a wavy mouth.
+ */
+export function scaredPixels(who: OpponentIndex, look: OpponentLook, frame: number): Pixels {
+  const shape = SHAPES[who] as (typeof SHAPES)[number];
+  const t = frame / 6;
+  const body = (px: number, py: number): boolean => {
+    if (px < 0 || py < 0 || px >= SPRITE_SIZE || py >= SPRITE_SIZE) return false;
+    const dx = px - 7.5;
+    const dy = py - 7.5;
+    return shape(dx, dy, Math.hypot(dx, dy), Math.atan2(dy, dx), t, px);
+  };
+  const fill = look === 'flash' ? NEON.scaredFlash : NEON.scared;
+  const face = look === 'flash' ? NEON.scaredFlashFace : NEON.scaredFace;
+  return paint(SPRITE_SIZE, (px, py) => {
+    if (body(px, py)) {
+      const eye = py === 6 && (px === 5 || px === 6 || px === 9 || px === 10);
+      const mouth = px >= 4 && px <= 11 && py === (px % 2 === 0 ? 10 : 11);
+      return eye || mouth ? face : fill;
+    }
+    const touches = body(px + 1, py) || body(px - 1, py) || body(px, py + 1) || body(px, py - 1);
+    return touches ? NEON.opponentOutline : null;
+  });
+}
+
+/** An eaten opponent: just its eyes, looking the way they travel. */
+export function eyesPixels(dir: Dir): Pixels {
+  const [ox, oy] = LOOK[dir];
+  return paint(SPRITE_SIZE, (px, py) => {
+    for (const ex of [4, 9]) {
+      if (px === ex + 1 + ox && py === 6 + oy) return NEON.pupil;
+      if (px >= ex && px < ex + 3 && py >= 5 && py < 8) return NEON.eyeWhite;
+      const ring = px >= ex - 1 && px < ex + 4 && py >= 4 && py < 9;
+      if (ring) return NEON.opponentOutline;
+    }
+    return null;
+  });
+}

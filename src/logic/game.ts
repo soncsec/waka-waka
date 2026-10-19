@@ -1,23 +1,28 @@
 import { HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
 import { levelRow } from './difficulty';
+import { createRng, mixSeed } from './rng';
 import { createModeClock, currentMode, tickMode, type Mode, type ModeClock } from './scheduler';
 import { isWalkable, TILE, type Maze } from './maze';
 import {
+  chooseRandom,
+  chooseShortest,
   chooseToward,
+  type Dir,
   gap,
   move,
+  type Mover,
+  OPPOSITE,
+  type Point,
   steer,
   tileOf,
-  type Dir,
-  type Mover,
-  type Point,
 } from './movement';
 import {
-  type Opponent,
   chaseTarget,
   createOpponents,
+  eyesTarget,
   mayLeave,
   moveInHouse,
+  type Opponent,
   reverseAll,
 } from './opponents';
 
@@ -52,6 +57,12 @@ export interface GameState {
   phaseTime: number;
   /** Dots and pellets eaten since this life began, for the house release. */
   dotsThisLife: number;
+  /** Seconds of scare left after a power pellet; 0 when nobody is scared. */
+  scaredTime: number;
+  /** Scared opponents eaten on the current pellet (sets their points). */
+  eatChain: number;
+  /** Seeded choices made by scared opponents so far; each one draws from the maze seed (ADR-006). */
+  wanderCount: number;
   /** Scatter/chase position (WW-02); restarts with each life. */
   modeClock: ModeClock;
   /** Seconds since the hero last ate, for the house release. */
@@ -61,6 +72,9 @@ export interface GameState {
 export interface Eaten extends Point {
   kind: 'dot' | 'pellet';
 }
+
+/** RNG stream for scared opponents, kept apart from the maze generator's. */
+const SCARED_RNG_STREAM = 0x5ca7ed;
 
 /** What a player keeps from one maze to the next. */
 export interface Carry {
@@ -91,6 +105,9 @@ export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): 
     phase: 'ready',
     phaseTime: 0,
     dotsThisLife: 0,
+    scaredTime: 0,
+    eatChain: 0,
+    wanderCount: 0,
     modeClock: createModeClock(),
     sinceDot: 0,
   };
@@ -106,6 +123,22 @@ function resetActors(state: GameState): void {
   state.dotsThisLife = 0;
   state.sinceDot = 0;
   state.modeClock = createModeClock();
+  state.scaredTime = 0;
+  state.eatChain = 0;
+}
+
+/**
+ * A power pellet (M2.3): every opponent out in the maze turns around and, for the
+ * row's `scaredSeconds`, is scared. Also used by the e2e test hook.
+ */
+export function powerUp(state: GameState): void {
+  state.scaredTime = state.row.scaredSeconds;
+  state.eatChain = 0;
+  for (const o of state.opponents) {
+    if (o.state !== 'out') continue;
+    o.dir = OPPOSITE[o.dir];
+    o.scared = state.scaredTime > 0;
+  }
 }
 
 /** Whether the opponents are scattering to their corners or chasing. */
@@ -185,6 +218,7 @@ function play(state: GameState, dt: number): Eaten[] {
     state.score += SCORE[kind];
     state.dotsLeft--;
     eaten.push({ ...t, kind });
+    if (kind === 'pellet') powerUp(state);
     if (state.dotsLeft === 0) {
       enter(state, 'cleared');
       return eaten;
@@ -199,10 +233,19 @@ function play(state: GameState, dt: number): Eaten[] {
   }
 
   moveOpponents(state, dt, open);
-  const caught = state.opponents.some(
-    (o) => o.state === 'out' && gap(state.hero, o, maze.width) < ROUND.catchDistance,
-  );
-  if (caught) enter(state, 'dying');
+  for (const o of state.opponents) {
+    if (o.state !== 'out' || gap(state.hero, o, maze.width) >= ROUND.catchDistance) continue;
+    if (o.scared) {
+      // Eaten: points rise with each opponent on the same pellet; the eyes go home.
+      state.score += SCORE.eaten[Math.min(state.eatChain, SCORE.eaten.length - 1)] ?? 0;
+      state.eatChain++;
+      o.scared = false;
+      o.state = 'eyes';
+    } else {
+      enter(state, 'dying');
+      break;
+    }
+  }
   return eaten;
 }
 
@@ -214,7 +257,13 @@ function moveOpponents(
   const { maze } = state;
   const hero = { ...tileOf(state.hero, maze.width), dir: state.hero.dir };
   const murk = state.opponents[0] as Opponent;
-  if (tickMode(state.row, state.modeClock, dt)) reverseAll(state.opponents);
+  if (state.scaredTime > 0) {
+    // The scatter/chase clock waits while the opponents are scared.
+    state.scaredTime = Math.max(0, state.scaredTime - dt);
+    if (state.scaredTime === 0) for (const o of state.opponents) o.scared = false;
+  } else if (tickMode(state.row, state.modeClock, dt)) {
+    reverseAll(state.opponents);
+  }
   const ctx = { maze, mode: modeOf(state), hero, murk: tileOf(murk, maze.width) };
 
   // Release waiting opponents one at a time, in cast order.
@@ -224,9 +273,25 @@ function moveOpponents(
     state.sinceDot = 0;
   }
 
+  const home = eyesTarget(maze);
+  const pick = (dirs: readonly Dir[]): Dir =>
+    createRng(mixSeed(maze.seed ^ SCARED_RNG_STREAM, state.wanderCount++)).pick(dirs);
   for (const o of state.opponents) {
+    if (o.state === 'eyes') {
+      const atHome = (m: Mover): boolean => m.x === home.x && m.y === home.y;
+      const toHome = (m: Mover): Dir => chooseShortest(m, home, open, maze.width, maze.height);
+      steer(o, OPPONENTS.eyesSpeed * dt, toHome, open, maze.width, atHome);
+      if (atHome(o)) o.state = 'entering';
+      continue;
+    }
     if (o.state !== 'out') {
-      moveInHouse(o, maze, OPPONENTS.houseSpeed * dt);
+      const speed = o.state === 'entering' ? OPPONENTS.eyesSpeed : OPPONENTS.houseSpeed;
+      moveInHouse(o, maze, speed * dt);
+      continue;
+    }
+    if (o.scared) {
+      const wander = (m: Mover): Dir => chooseRandom(m, open, pick);
+      steer(o, state.row.scaredSpeed * dt, wander, open, maze.width);
       continue;
     }
     const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);

@@ -12,6 +12,8 @@ export interface TestHook {
   snapshot(): GameSnapshot | null;
   /** Eats every dot left, so the maze is cleared at once. */
   skipMaze(): void;
+  /** Scares the opponents as a power pellet would. */
+  powerUp(): void;
 }
 
 declare global {
@@ -30,6 +32,10 @@ export function installTestHook(game: Phaser.Game): void {
     skipMaze: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
       if (s && game.scene.isActive('Game')) s.skipMaze();
+    },
+    powerUp: () => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      if (s && game.scene.isActive('Game')) s.powerUp();
     },
   };
 }
