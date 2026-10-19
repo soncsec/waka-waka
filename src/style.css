@@ -29,3 +29,29 @@ body {
 canvas {
   image-rendering: pixelated;
 }
+
+/* The floating joystick (M4.1): hidden until a thumb touches outside the maze. */
+.joystick {
+  position: fixed;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border: 2px solid #ff3df2;
+  border-radius: 50%;
+  background: rgb(90 26 122 / 35%);
+  pointer-events: none;
+  display: none;
+}
+
+.joystick-on {
+  display: block;
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: #2ef2c8;
+  box-shadow: 0 0 8px #2ef2c8;
+}

@@ -420,6 +420,100 @@ test('a swipe steers the hero', async ({ page }) => {
   await expect.poll(async () => (await snapshot(page)).hero.dir, { timeout: 15_000 }).toBe('left');
 });
 
+test.describe('the joystick (M4.1)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  /** Sends pointer events of `type` ('touch' or 'mouse') to the page around the canvas. */
+  async function stick(
+    page: Page,
+    pointerType: string,
+    moves: [number, number][],
+  ): Promise<{ shown: boolean[]; wanted: (string | null)[] }> {
+    return page.evaluate(
+      ({ pointerType, moves }) => {
+        const root = document.getElementById('game') as HTMLElement;
+        const base = document.querySelector('.joystick') as HTMLElement;
+        const fire = (type: string, x: number, y: number): void => {
+          root.dispatchEvent(
+            new PointerEvent(type, {
+              pointerType,
+              pointerId: 7,
+              clientX: x,
+              clientY: y,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        };
+        const shown: boolean[] = [];
+        const wanted: (string | null)[] = [];
+        const [start = [0, 0], ...rest] = moves;
+        fire('pointerdown', start[0], start[1]);
+        shown.push(getComputedStyle(base).display !== 'none');
+        for (const [x, y] of rest) {
+          fire('pointermove', x, y);
+          wanted.push(window.__game?.snapshot()?.wanted ?? null);
+        }
+        fire('pointerup', start[0], start[1]);
+        shown.push(getComputedStyle(base).display !== 'none');
+        return { shown, wanted };
+      },
+      { pointerType, moves },
+    );
+  }
+
+  test('a thumb below the maze shows the stick and steers; lifting it hides the stick', async ({
+    page,
+  }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    const box = await page.locator('#game canvas').boundingBox();
+    if (!box) throw new Error('no canvas');
+    const x = 195;
+    const y = Math.round((box.y + box.height + 844) / 2);
+    expect(y).toBeGreaterThan(box.y + box.height);
+    const result = await stick(page, 'touch', [
+      [x, y],
+      [x + 4, y], // inside the dead zone: no turn
+      [x, y - 30],
+      [x + 30, y],
+    ]);
+    expect(result.shown).toEqual([true, false]);
+    expect(result.wanted[1]).toBe('up');
+    expect(result.wanted[2]).toBe('right');
+    expect(watched.errors).toEqual([]);
+  });
+
+  test('a mouse never shows the stick', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    const result = await stick(page, 'mouse', [
+      [195, 800],
+      [195, 760],
+    ]);
+    expect(result.shown).toEqual([false, false]);
+  });
+
+  test('touching the stick area while paused carries on without steering', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    await page.keyboard.press('KeyP');
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(true);
+    const before = (await snapshot(page)).wanted;
+    const result = await stick(page, 'touch', [
+      [195, 800],
+      [195, 760],
+    ]);
+    const after = await snapshot(page);
+    expect(after.paused).toBe(false);
+    expect(result.wanted[0]).toBe(before);
+  });
+});
+
 test.describe('on a touchscreen', () => {
   // Like a phone or tablet: the browser reports touch support, so Phaser listens for touch events.
   test.use({ hasTouch: true });

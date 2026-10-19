@@ -265,6 +265,19 @@ export const SWIPE = {
   minDistance: 10,
 } as const;
 
+/**
+ * The floating joystick (M4.1, WW-06): it appears under a thumb that touches the
+ * page outside the maze. Sizes are in CSS pixels.
+ */
+export const JOYSTICK = {
+  /** How far the knob can move from the centre. */
+  radius: 36,
+  /** The thumb must move this far from where it landed before the hero turns. */
+  deadZone: 10,
+  /** Diameter of the knob. */
+  knobSize: 36,
+} as const;
+
 /** Look B, "Neon Arcade" (WW-04). */
 export const NEON = {
   background: 0x07051a,
