@@ -330,6 +330,48 @@ test("Wisp's Phase on maze 5: see-through, through a wall, then ready (WW-10)", 
   expect(watched.errors).toEqual([]);
 });
 
+test.describe('pause (M4.4)', () => {
+  test('P pauses and Esc carries on; nothing moves while paused', async ({ page }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    await page.keyboard.press('KeyP');
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(true);
+    const frozen = await snapshot(page);
+    await page.waitForTimeout(1000);
+    const later = await snapshot(page);
+    expect(later.hero).toEqual(frozen.hero);
+    expect(later.opponents).toEqual(frozen.opponents);
+    expect(later.score).toBe(frozen.score);
+    // A direction key while paused is ignored.
+    await page.keyboard.press('ArrowUp');
+    expect((await snapshot(page)).wanted).toBe(frozen.wanted);
+
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(false);
+    await expect
+      .poll(async () => (await snapshot(page)).opponents, { timeout: 5_000 })
+      .not.toEqual(frozen.opponents);
+    expect(watched.errors).toEqual([]);
+  });
+
+  test('losing focus pauses, and a tap carries on', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(true);
+    const frozen = await snapshot(page);
+    await page.locator('#game canvas').click();
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(false);
+    // The tap only resumed: it did not steer.
+    expect((await snapshot(page)).wanted).toBe(frozen.wanted);
+  });
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.

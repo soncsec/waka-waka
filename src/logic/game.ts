@@ -92,6 +92,8 @@ export interface GameState {
   bonusShown: number;
   /** Seconds the battery on show has left; 0 when none is showing. */
   bonusTime: number;
+  /** Paused by the player (P or Esc) or because the tab lost focus (M4.4): nothing moves. */
+  paused: boolean;
 }
 
 export interface Eaten extends Point {
@@ -142,6 +144,7 @@ export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): 
     dotsTotal: dotsLeft,
     bonusShown: 0,
     bonusTime: 0,
+    paused: false,
   };
   resetActors(state);
   return state;
@@ -243,8 +246,19 @@ export function nextMazeDue(state: GameState): boolean {
   return state.phase === 'cleared' && state.phaseTime >= ROUND.clearedSeconds;
 }
 
+/** Whether the game can be paused now: not once the run has ended or the maze is cleared. */
+export function canPause(state: GameState): boolean {
+  return state.phase === 'ready' || state.phase === 'playing' || state.phase === 'dying';
+}
+
+/** Pauses or resumes (M4.4). Pausing is ignored when `canPause` is false. */
+export function setPaused(state: GameState, paused: boolean): void {
+  state.paused = paused && canPause(state);
+}
+
 /** Advances the game by `dt` seconds. Returns the dots and pellets eaten. */
 export function stepGame(state: GameState, dt: number): Eaten[] {
+  if (state.paused) return [];
   state.phaseTime += dt;
   switch (state.phase) {
     case 'ready':
