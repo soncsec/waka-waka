@@ -87,9 +87,12 @@ describe('stepGame', () => {
     expect(state.score).toBe(SCORE.dot);
     expect(tileAt(state, 1, 1)).toBe(TILE.empty);
 
+    // Half the dots are eaten, so the bonus battery (M3.3) is on the start spot,
+    // which the hero passes on its way to the pellet.
+    expect(state.bonusTime).toBeGreaterThan(0);
     setWanted(state, 'right');
     runUntil(state, () => state.phase === 'cleared');
-    expect(state.score).toBe(SCORE.dot + SCORE.pellet);
+    expect(state.score).toBe(SCORE.dot + levelRow(1).bonusPoints + SCORE.pellet);
     expect(state.dotsLeft).toBe(0);
 
     const before = { ...state.hero };

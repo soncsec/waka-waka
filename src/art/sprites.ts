@@ -242,3 +242,28 @@ export function lungePixels(dir: Dir): Pixels {
     return touches ? NEON.opponentOutline : null;
   });
 }
+
+/** Charge-bar frames of the bonus battery: 1, 2, then 3 bars lit. */
+export const BATTERY_FRAMES = 3;
+
+/**
+ * The bonus battery (M3.3, not fruit per docs/ORIGINALITY.md): a neon cell lying
+ * on its side with a bright terminal on the right and `bars` of 3 charge bars lit.
+ */
+export function batteryPixels(bars: number): Pixels {
+  return paint(SPRITE_SIZE, (px, py) => {
+    // Terminal cap.
+    if (px >= 13 && px <= 14 && py >= 6 && py <= 9) return NEON.batteryCap;
+    if (px < 1 || px > 12 || py < 4 || py > 11) return null;
+    // Case outline with clipped corners.
+    const edgeX = px === 1 || px === 12;
+    const edgeY = py === 4 || py === 11;
+    if (edgeX && edgeY) return null;
+    if (edgeX || edgeY) return NEON.battery;
+    // Charge bars, 2 pixels wide with a 1 pixel gap, inside a 1 pixel margin.
+    const bar = Math.floor((px - 3) / 3);
+    const inBar = px >= 3 && px <= 10 && (px - 3) % 3 < 2 && py >= 6 && py <= 9;
+    if (inBar && bar < bars) return NEON.batteryCharge;
+    return null;
+  });
+}

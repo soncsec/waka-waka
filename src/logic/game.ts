@@ -1,4 +1,4 @@
-import { HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
+import { BONUS, HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
 import { levelRow } from './difficulty';
 import {
   createSpecials,
@@ -86,10 +86,16 @@ export interface GameState {
   specials: SpecialState[];
   /** Seconds since the hero last ate, for the house release. */
   sinceDot: number;
+  /** Dots and pellets the maze started with. */
+  dotsTotal: number;
+  /** Bonus batteries shown on this maze so far (M3.3). */
+  bonusShown: number;
+  /** Seconds the battery on show has left; 0 when none is showing. */
+  bonusTime: number;
 }
 
 export interface Eaten extends Point {
-  kind: 'dot' | 'pellet';
+  kind: 'dot' | 'pellet' | 'bonus';
 }
 
 /** RNG stream for scared opponents, kept apart from the maze generator's. */
@@ -133,6 +139,9 @@ export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): 
     modeClock: createModeClock(),
     specials: createSpecials(),
     sinceDot: 0,
+    dotsTotal: dotsLeft,
+    bonusShown: 0,
+    bonusTime: 0,
   };
   resetActors(state);
   return state;
@@ -149,6 +158,8 @@ function resetActors(state: GameState): void {
   state.specials = createSpecials();
   state.scaredTime = 0;
   state.eatChain = 0;
+  // A battery on show goes when a life is lost; it doesn't come back.
+  state.bonusTime = 0;
 }
 
 /**
@@ -172,6 +183,26 @@ export function addScore(state: GameState, points: number): void {
     state.extraLifeGiven = true;
     state.lives = Math.min(state.lives + 1, ROUND.maxLives);
   }
+}
+
+/**
+ * Puts a bonus battery on the hero's start spot (M3.3). Used when its share of
+ * the dots is eaten, and by the e2e test hook.
+ */
+export function showBonus(state: GameState): void {
+  state.bonusShown++;
+  state.bonusTime = BONUS.seconds;
+}
+
+/** Shows the next battery once its share of the dots is eaten, and runs down the one on show. */
+function tickBonus(state: GameState, dt: number): void {
+  if (state.bonusTime > 0) {
+    state.bonusTime = Math.max(0, state.bonusTime - dt);
+    return;
+  }
+  const share = BONUS.appearAt[state.bonusShown];
+  const eaten = state.dotsTotal - state.dotsLeft;
+  if (share !== undefined && eaten >= share * state.dotsTotal) showBonus(state);
 }
 
 /** Whether the opponents are scattering to their corners or chasing. */
@@ -203,6 +234,7 @@ export function clearMaze(state: GameState): void {
     }
   }
   state.dotsLeft = 0;
+  state.bonusTime = 0;
   enter(state, 'cleared');
 }
 
@@ -253,12 +285,21 @@ function play(state: GameState, dt: number): Eaten[] {
     eaten.push({ ...t, kind });
     if (kind === 'pellet') powerUp(state);
     if (state.dotsLeft === 0) {
+      state.bonusTime = 0;
       enter(state, 'cleared');
       return eaten;
     }
   }
 
-  if (eaten.length > 0) {
+  if (state.bonusTime > 0 && gap(state.hero, maze.start, maze.width) < BONUS.reach) {
+    addScore(state, state.row.bonusPoints);
+    state.bonusTime = 0;
+    eaten.push({ ...maze.start, kind: 'bonus' });
+  } else {
+    tickBonus(state, dt);
+  }
+
+  if (eaten.some((e) => e.kind !== 'bonus')) {
     state.dotsThisLife++;
     state.sinceDot = 0;
   } else {

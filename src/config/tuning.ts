@@ -72,6 +72,8 @@ export interface LevelRow {
   lunge: LungeRow | null;
   /** Wisp's Phase (WW-10); null while it is off. */
   phase: PhaseRow | null;
+  /** Points for eating the bonus battery on this maze (M3.3). */
+  bonusPoints: number;
 }
 
 /**
@@ -150,6 +152,7 @@ const MAZE_1: LevelRow = {
   dash: null,
   lunge: null,
   phase: null,
+  bonusPoints: 250,
 };
 
 const DASH: DashRow = { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 };
@@ -163,12 +166,16 @@ const MAZE_3: LevelRow = {
 export const LEVELS: readonly LevelRow[] = [
   MAZE_1,
   // Maze 2: Bolt's Dash switches on (PROJECT.md, WW-10).
-  { ...MAZE_1, dash: DASH },
+  { ...MAZE_1, dash: DASH, bonusPoints: 500 },
   // Maze 3: Gnash's Lunge switches on.
-  MAZE_3,
-  MAZE_3,
+  { ...MAZE_3, bonusPoints: 750 },
+  { ...MAZE_3, bonusPoints: 1000 },
   // Maze 5: Wisp's Phase switches on.
-  { ...MAZE_3, phase: { wall: 2, range: 4, tell: 1, cross: 0.8, cooldown: 12 } },
+  {
+    ...MAZE_3,
+    phase: { wall: 2, range: 4, tell: 1, cross: 0.8, cooldown: 12 },
+    bonusPoints: 1500,
+  },
 ];
 
 /** Round rules. Times are in seconds. */
@@ -226,6 +233,25 @@ export const SCORE = {
   eaten: [100, 300, 700, 1500],
 } as const;
 
+/**
+ * The bonus battery (M3.3, not fruit per docs/ORIGINALITY.md): it appears on the
+ * hero's start spot twice per maze, once each share of the maze's dots is eaten,
+ * and stays for `seconds` of play. Its points are in the difficulty table.
+ */
+export const BONUS = {
+  /** Share of the maze's dots and pellets eaten when each battery appears. */
+  appearAt: [0.3, 0.7],
+  seconds: 9,
+  /** Eaten when the hero is closer than this, in tiles. */
+  reach: 0.6,
+} as const;
+
+/** Bonus battery art: charge-bar steps per second (held full for reduced motion) and the points popup. */
+export const BONUS_ART = {
+  chargeHz: 3,
+  popupSeconds: 1.5,
+} as const;
+
 /** High score (WW-08): the only thing kept in localStorage. */
 export const HIGH_SCORE = {
   storageKey: 'waka-waka.highScore',
@@ -271,6 +297,10 @@ export const NEON = {
   /** An eaten opponent travels home as a spark. */
   sparkCore: 0xffffff,
   sparkRay: 0x7af7ff,
+  /** The bonus battery (M3.3): case, charge bars and the + terminal. */
+  battery: 0x6dff7a,
+  batteryCharge: 0xd8ff4a,
+  batteryCap: 0xffffff,
   eyeWhite: 0xffffff,
   pupil: 0x151040,
   gnashTeeth: 0xfff8e0,
