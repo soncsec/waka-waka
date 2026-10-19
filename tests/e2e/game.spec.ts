@@ -133,6 +133,49 @@ test('a power pellet scares the opponents for a while, without errors', async ({
   expect(watched.errors).toEqual([]);
 });
 
+test.describe('high score (WW-08)', () => {
+  const KEY = 'waka-waka.highScore';
+
+  for (const bad of ['-5', '1e9', '<b>hi</b>', '99999999999999999999']) {
+    test(`a tampered stored high score (${bad}) is reset to 0`, async ({ page }) => {
+      await page.addInitScript(
+        ([k, v]) => {
+          if (!sessionStorage.getItem('seeded')) {
+            localStorage.setItem(k, v);
+            sessionStorage.setItem('seeded', '1');
+          }
+        },
+        [KEY, bad] as const,
+      );
+      await openGame(page, '?seed=7');
+      expect((await snapshot(page)).highScore).toBe(0);
+      expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe('0');
+    });
+  }
+
+  test('a valid high score shows, and a better score is saved when the maze is cleared', async ({
+    page,
+  }) => {
+    await page.addInitScript((k) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(k, '15');
+        sessionStorage.setItem('seeded', '1');
+      }
+    }, KEY);
+    await openGame(page, '?seed=7');
+    expect((await snapshot(page)).highScore).toBe(15);
+    await expect
+      .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+      .toBeGreaterThan(15);
+    await page.evaluate(() => window.__game?.skipMaze());
+    await expect.poll(async () => (await snapshot(page)).level, { timeout: 15_000 }).toBe(2);
+    const score = (await snapshot(page)).score;
+    expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe(String(score));
+    // Nothing else is stored (PROJECT.md: localStorage holds only the high score).
+    expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([KEY]);
+  });
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.
