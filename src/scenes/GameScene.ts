@@ -56,6 +56,7 @@ import { formatHighScore, parseHighScore } from '../logic/highscore';
 import { phaseExitOf, primeSpecial, type SpecialPhase } from '../logic/specials';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
+import { createJoystick } from '../ui/joystick';
 
 /** Read-only view of the game state, used by the e2e test hook. */
 export interface GameSnapshot {
@@ -356,10 +357,7 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.restartIfOver()) return;
       // A tap carries on after a pause; it doesn't steer.
-      if (this.state.paused) {
-        this.pause(false);
-        return;
-      }
+      if (this.resumeIfPaused()) return;
       this.swipeStart = { x: p.x, y: p.y };
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -378,6 +376,17 @@ export class GameScene extends Phaser.Scene {
       this.swipeStart = null;
     });
 
+    // The floating joystick (M4.1) lives in the page around the canvas.
+    const root = document.getElementById('game');
+    const removeJoystick = root
+      ? createJoystick(root, {
+          onTouch: () => this.restartIfOver() || this.resumeIfPaused(),
+          onDir: (dir) => {
+            if (!this.state.paused) setWanted(this.state, dir);
+          },
+        })
+      : () => undefined;
+
     // The scene is reused for the next game: drop these listeners when it shuts down.
     // Save the high score if the player leaves mid-game.
     const onHide = (): void => this.saveHighScore();
@@ -389,6 +398,7 @@ export class GameScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('pagehide', onHide);
+      removeJoystick();
       this.game.events.off(Phaser.Core.Events.BLUR, onBlur);
       this.game.events.off(Phaser.Core.Events.HIDDEN, onBlur);
       kb.removeAllListeners('keydown');
@@ -404,6 +414,13 @@ export class GameScene extends Phaser.Scene {
     // No catch-up burst of steps after a long pause.
     this.pending = 0;
     this.showPhase();
+  }
+
+  /** Carries on if paused; true if it did, so the touch that did it doesn't steer. */
+  private resumeIfPaused(): boolean {
+    if (!this.state.paused) return false;
+    this.pause(false);
+    return true;
   }
 
   /** At game over, after a short delay, any key or tap starts a new game. */

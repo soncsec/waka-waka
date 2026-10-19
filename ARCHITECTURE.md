@@ -31,9 +31,11 @@ src/
 │   ├── highscore      parse and format the stored high score (WW-08)
 │   ├── specials       special moves: one state machine per opponent, fairness rules (WW-10)
 │   ├── difficulty     the difficulty row for a maze number (WW-07)
+│   ├── joystick       the joystick's direction and knob position (WW-06)
 │   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
 ├── scenes/            Phaser scenes: thin, call into logic/
+├── ui/joystick.ts     the floating touch joystick, plain DOM around the canvas (WW-06)
 └── debug/testHook.ts  window.__game for Playwright (e2e build only)
 tests/
 ├── unit/              Vitest, 80% coverage floor on src/logic
@@ -82,6 +84,7 @@ Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the
 - **Decision:** keyboard (arrows, WASD, P or Esc to pause) and touch: a swipe anywhere sets the buffered direction, with an optional on-screen d-pad below the maze. All inputs feed the same buffered-direction command in `src/logic/`.
 - **Alternatives:** a virtual joystick.
 - **Why:** maze games need four discrete directions; swipes and a d-pad map to them directly.
+- **Amendment (2026-10-19, owner-approved):** the d-pad is replaced by a floating joystick (M4.1). A touch on the page outside the canvas (below the maze on a phone, beside it on a landscape tablet) shows a stick under the thumb; moving the thumb past a dead zone picks the direction, the longer axis winning as with swipes. Swipes on the maze still work. Only touch pointers show it, so desktop never does, and there is no setting. It is plain DOM (`src/ui/joystick.ts`, positioned through CSSOM so the strict CSP holds); the direction rule is in `src/logic/joystick.ts`. A touch that resumes a pause or restarts after game over does not steer.
 
 ### WW-07 Difficulty table
 

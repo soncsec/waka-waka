@@ -11,7 +11,7 @@ A neon maze-chase game: eat every dot in a freshly generated maze while four nam
 | Area | Decision |
 |---|---|
 | Genre and camera | Top-down, single-screen grid maze chase. Logical size 384×464 (24×27 tiles of 16 px plus HUD), whole-number zoom. |
-| Controls | Keyboard: arrows or WASD, with the next turn buffered. Touch: swipe, plus an optional on-screen d-pad. P or Esc pauses; the game also pauses when the tab loses focus. |
+| Controls | Keyboard: arrows or WASD, with the next turn buffered. Touch: swipe on the maze, plus a floating joystick that appears under a thumb in the space around the maze. P or Esc pauses; the game also pauses when the tab loses focus. |
 | Devices | Desktop browsers, and phones and tablets with touchscreens. Phones are **portrait only**; landscape shows a "rotate your phone" prompt. Tablets play in either orientation. |
 | Player | The hero, a teal chomper. 3 lives, plus an extra life at a score threshold set in `tuning.ts`. |
 | Opponents | **Murk** (red-pink, spiky): chases the hero's tile; special move *Frenzy* from maze 1. **Gnash** (orange, box with teeth): aims 4 tiles ahead of the hero; *Lunge* from maze 3. **Bolt** (yellow, diamond): flanks using Murk's position; *Dash* from maze 2. **Wisp** (violet, jelly): chases from far away and drifts off up close; *Phase* through a thin wall from maze 5. All four leave a ghost house in turn and alternate between scatter and chase. |
@@ -52,6 +52,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-18 | First live on games.soncrant.com after M1 (the first chase), each release with owner approval; the card keeps its final summary |
 | 2026-10-18 | Product review after M1 (tab "Product review" in the Claude Docs doc): quick wins pulled forward into M2.0; the next production release only after M2.3; the difficulty table starts in M2.1; an owner playtest and the originality review close M2; a phone readability check in M4 |
 | 2026-10-19 | Originality review (docs/ORIGINALITY.md): keep the name Waka-Waka; change the on-screen texts, points, timings, extra-life score and targeting numbers; redesign the scared look; no "waka" chomp or siren in M5 and no fruit bonus in M3.3; the next production release waits for these fixes |
+| 2026-10-19 | Touch controls (M4.1): a floating joystick in the space around the maze instead of a d-pad; swipes keep working; shown on touchscreens only, with no setting |
 | 2026-10-19 | Bonus item (M3.3): a neon battery cell, chosen by the owner; it appears twice per maze on the hero's start spot and is worth more on later mazes |
 
 ## 5. Open questions
