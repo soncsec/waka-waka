@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import type { GameScene, GameSnapshot } from '../scenes/GameScene';
+import { STEP_EVENT, type GameScene, type GameSnapshot } from '../scenes/GameScene';
 
 /**
  * Test-only hook for Playwright (ADR-006). It is loaded only in the e2e build
@@ -18,6 +18,8 @@ export interface TestHook {
   primeSpecial(index: number): void;
   /** Puts the bonus battery out on the hero's start spot (M3.3). */
   showBonus(): void;
+  /** Calls `fn` after every simulation step, from now on (also on later mazes). */
+  onStep(fn: () => void): void;
 }
 
 declare global {
@@ -44,6 +46,10 @@ export function installTestHook(game: Phaser.Game): void {
     primeSpecial: (index: number) => {
       const s = game.scene.getScene('Game') as GameScene | null;
       if (s && game.scene.isActive('Game')) s.primeSpecial(index);
+    },
+    onStep: (fn: () => void) => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      s?.events.on(STEP_EVENT, fn);
     },
     showBonus: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
