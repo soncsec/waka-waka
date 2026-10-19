@@ -106,6 +106,9 @@ const lungeTexture = (dir: Dir): string => `lunge-${dir}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
 
+/** Emitted after every simulation step, so the e2e hook can watch states that last only a few steps. */
+export const STEP_EVENT = 'step';
+
 /** Keys that pause and resume (M4.4). */
 const PAUSE_KEYS: ReadonlySet<string> = new Set(['KeyP', 'Escape']);
 
@@ -219,6 +222,7 @@ export class GameScene extends Phaser.Scene {
     let steps = 0;
     while (this.pending >= dt && steps < MAX_STEPS_PER_FRAME) {
       for (const e of stepGame(this.state, dt)) this.removePickup(e, time);
+      this.events.emit(STEP_EVENT);
       this.pending -= dt;
       steps++;
     }

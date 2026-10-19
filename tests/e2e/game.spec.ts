@@ -233,16 +233,15 @@ test("Bolt's Dash on maze 2: a tell, a dash, then ready again (WW-10)", async ({
   // Bolt leaves the house once the hero has eaten enough or gone idle.
   const bolt = async () => (await snapshot(page)).opponents[2];
   await expect.poll(async () => (await bolt())?.state, { timeout: 30_000 }).toBe('out');
-  // Record Bolt's phase every frame: a dash to a nearby junction lasts only a few frames.
+  // Record Bolt's phase every simulation step: a dash to a nearby junction lasts only a few
+  // steps, and a busy machine runs several steps per drawn frame.
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as unknown as { dashSeen: string[] }).dashSeen = seen;
-    const tick = (): void => {
+    window.__game?.onStep(() => {
       const phase = window.__game?.snapshot()?.opponents[2]?.special;
       if (phase && seen[seen.length - 1] !== phase) seen.push(phase);
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+    });
     window.__game?.primeSpecial(2);
   });
   const seen = (): Promise<string[]> =>
@@ -271,12 +270,10 @@ test("Gnash's Lunge on maze 3: a tell, a jump, a pause, then ready (WW-10)", asy
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as unknown as { lungeSeen: string[] }).lungeSeen = seen;
-    const tick = (): void => {
+    window.__game?.onStep(() => {
       const phase = window.__game?.snapshot()?.opponents[1]?.special;
       if (phase && seen[seen.length - 1] !== phase) seen.push(phase);
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+    });
     window.__game?.primeSpecial(1);
   });
   const seen = (): Promise<string[]> =>
