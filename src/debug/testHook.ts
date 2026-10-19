@@ -14,6 +14,8 @@ export interface TestHook {
   skipMaze(): void;
   /** Scares the opponents as a power pellet would. */
   powerUp(): void;
+  /** Makes an opponent's special move due (0 = Murk's Frenzy). */
+  primeSpecial(index: number): void;
 }
 
 declare global {
@@ -36,6 +38,10 @@ export function installTestHook(game: Phaser.Game): void {
     powerUp: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
       if (s && game.scene.isActive('Game')) s.powerUp();
+    },
+    primeSpecial: (index: number) => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      if (s && game.scene.isActive('Game')) s.primeSpecial(index);
     },
   };
 }

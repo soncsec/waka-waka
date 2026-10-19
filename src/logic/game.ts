@@ -1,5 +1,6 @@
 import { HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
 import { levelRow } from './difficulty';
+import { createSpecials, specialSpeed, tickSpecials, type SpecialState } from './specials';
 import { createRng, mixSeed } from './rng';
 import { createModeClock, currentMode, tickMode, type Mode, type ModeClock } from './scheduler';
 import { isWalkable, TILE, type Maze } from './maze';
@@ -68,6 +69,8 @@ export interface GameState {
   wanderCount: number;
   /** Scatter/chase position (WW-02); restarts with each life. */
   modeClock: ModeClock;
+  /** Each opponent's special move, in cast order (WW-10). */
+  specials: SpecialState[];
   /** Seconds since the hero last ate, for the house release. */
   sinceDot: number;
 }
@@ -115,6 +118,7 @@ export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): 
     eatChain: 0,
     wanderCount: 0,
     modeClock: createModeClock(),
+    specials: createSpecials(),
     sinceDot: 0,
   };
   resetActors(state);
@@ -129,6 +133,7 @@ function resetActors(state: GameState): void {
   state.dotsThisLife = 0;
   state.sinceDot = 0;
   state.modeClock = createModeClock();
+  state.specials = createSpecials();
   state.scaredTime = 0;
   state.eatChain = 0;
 }
@@ -280,6 +285,12 @@ function moveOpponents(
     reverseAll(state.opponents);
   }
   const ctx = { maze, mode: modeOf(state), hero, murk: tileOf(murk, maze.width) };
+  const tunnel = (o: Opponent): boolean => inTunnel(maze, o);
+  tickSpecials(
+    state.specials,
+    { row: state.row, mode: ctx.mode, opponents: state.opponents, inTunnel: tunnel },
+    dt,
+  );
 
   // Release waiting opponents one at a time, in cast order.
   const next = state.opponents.findIndex((o) => o.state === 'waiting');
@@ -291,27 +302,28 @@ function moveOpponents(
   const home = eyesTarget(maze);
   const pick = (dirs: readonly Dir[]): Dir =>
     createRng(mixSeed(maze.seed ^ SCARED_RNG_STREAM, state.wanderCount++)).pick(dirs);
-  for (const o of state.opponents) {
+  state.opponents.forEach((o, i) => {
     if (o.state === 'eyes') {
       const atHome = (m: Mover): boolean => m.x === home.x && m.y === home.y;
       const toHome = (m: Mover): Dir => chooseShortest(m, home, open, maze.width, maze.height);
       steer(o, OPPONENTS.eyesSpeed * dt, toHome, open, maze.width, atHome);
       if (atHome(o)) o.state = 'entering';
-      continue;
+      return;
     }
     if (o.state !== 'out') {
       const speed = o.state === 'entering' ? OPPONENTS.eyesSpeed : OPPONENTS.houseSpeed;
       moveInHouse(o, maze, speed * dt);
-      continue;
+      return;
     }
     // Opponents crawl through the tunnel (M2.4); eyes do not.
     const cap = inTunnel(maze, o) ? state.row.tunnelSpeed : Infinity;
     if (o.scared) {
       const wander = (m: Mover): Dir => chooseRandom(m, open, pick);
       steer(o, Math.min(state.row.scaredSpeed, cap) * dt, wander, open, maze.width);
-      continue;
+      return;
     }
     const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
-    steer(o, Math.min(state.row.opponentSpeed, cap) * dt, choose, open, maze.width);
-  }
+    const speed = state.row.opponentSpeed * specialSpeed(state.row, i, state.specials[i]);
+    steer(o, Math.min(speed, cap) * dt, choose, open, maze.width);
+  });
 }

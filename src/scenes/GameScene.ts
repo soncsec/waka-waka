@@ -42,6 +42,7 @@ import { buildMaze, TILE } from '../logic/maze';
 import { DIRS, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
 import { formatHighScore, parseHighScore } from '../logic/highscore';
+import { primeSpecial, type SpecialPhase } from '../logic/specials';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
 
@@ -57,6 +58,8 @@ export interface GameSnapshot {
     dir: Dir;
     state: OpponentState;
     scared: boolean;
+    /** Special move phase (WW-10). */
+    special: SpecialPhase;
   }[];
   /** Seconds of scare left after a power pellet. */
   scaredTime: number;
@@ -81,6 +84,7 @@ const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
 const scaredTexture = (index: number, look: OpponentLook, frame: number): string =>
   `scared-${index}-${look}-${frame}`;
 const sparkTexture = (frame: number): string => `spark-${frame}`;
+const frenzyTexture = (dir: Dir, frame: number): string => `frenzy-${dir}-${frame}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
 
@@ -207,13 +211,14 @@ export class GameScene extends Phaser.Scene {
       seed: this.seed,
       level: this.level,
       hero: { x: hero.x, y: hero.y, dir: hero.dir, moving: hero.moving },
-      opponents: this.state.opponents.map(({ name, x, y, dir, state, scared }) => ({
+      opponents: this.state.opponents.map(({ name, x, y, dir, state, scared }, i) => ({
         name,
         x,
         y,
         dir,
         state,
         scared,
+        special: this.state.specials[i]?.phase ?? 'ready',
       })),
       scaredTime: this.state.scaredTime,
       wanted: this.state.wanted,
@@ -260,6 +265,11 @@ export class GameScene extends Phaser.Scene {
   /** Test hook: the effect of a power pellet, without walking to one. */
   powerUp(): void {
     powerUp(this.state);
+  }
+
+  /** Test hook: makes an opponent's special move due (WW-10). */
+  primeSpecial(index: number): void {
+    primeSpecial(this.state.specials, index);
   }
 
   skipMaze(): void {
@@ -357,6 +367,13 @@ export class GameScene extends Phaser.Scene {
     seconds: number,
   ): string {
     if (o.state === 'eyes' || o.state === 'entering') return sparkTexture(frame % SPARK_FRAMES);
+    const special = this.state.specials[i]?.phase ?? 'ready';
+    if (!o.scared && i === 0 && special !== 'ready') {
+      // Frenzy (WW-10): the tell is white-hot; both tell and burst spin the spikes fast.
+      const fast =
+        Math.floor(seconds * OPPONENT_ART.frameHz * OPPONENT_ART.frenzySpin) % OPPONENT_ART.frames;
+      return special === 'tell' ? frenzyTexture(o.dir, fast) : opponentTexture(i, o.dir, fast);
+    }
     if (!o.scared) return opponentTexture(i, o.dir, frame);
     const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
     const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
@@ -457,6 +474,9 @@ export class GameScene extends Phaser.Scene {
           if (!this.textures.exists(key))
             this.addPixelTexture(key, opponentPixels(who, dir, frame));
         }
+        const hot = frenzyTexture(dir, frame);
+        if (!this.textures.exists(hot))
+          this.addPixelTexture(hot, opponentPixels(0, dir, frame, NEON.frenzyHot));
       }
     }
     for (let frame = 0; frame < SPARK_FRAMES; frame++) {
