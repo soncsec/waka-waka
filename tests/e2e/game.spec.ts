@@ -119,8 +119,13 @@ test('a power pellet scares the opponents for a while, without errors', async ({
   const watched = watchPage(page);
   await openGame(page, '?seed=7');
   await expect.poll(async () => (await snapshot(page)).phase, { timeout: 15_000 }).toBe('playing');
-  await page.evaluate(() => window.__game?.powerUp());
-  const scared = await snapshot(page);
+  // Power up and look in the same call, so no game step runs in between: an
+  // opponent leaving the house a moment later rightly comes out unscared.
+  const scared = await page.evaluate(() => {
+    window.__game?.powerUp();
+    return window.__game?.snapshot() ?? null;
+  });
+  if (!scared) throw new Error('game scene is not running');
   expect(scared.scaredTime).toBeGreaterThan(0);
   expect(scared.opponents.filter((o) => o.state === 'out').every((o) => o.scared)).toBe(true);
   await expect.poll(async () => (await snapshot(page)).scaredTime, { timeout: 20_000 }).toBe(0);
