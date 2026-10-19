@@ -19,6 +19,7 @@ import {
 import {
   clearMaze,
   createGame,
+  modeOf,
   nextMazeDue,
   setWanted,
   stepGame,
@@ -42,6 +43,8 @@ export interface GameSnapshot {
   score: number;
   lives: number;
   phase: Phase;
+  /** scatter or chase (WW-02). */
+  mode: 'scatter' | 'chase';
   dotsLeft: number;
   /** The centre message (READY! or MAZE CLEARED!) while it shows, else null. */
   message: string | null;
@@ -178,6 +181,7 @@ export class GameScene extends Phaser.Scene {
       score: this.state.score,
       lives: this.state.lives,
       phase: this.state.phase,
+      mode: modeOf(this.state),
       dotsLeft: this.state.dotsLeft,
       message: this.message.visible ? this.message.text : null,
       maze: { grid: this.state.maze.grid, usedFallback: this.usedFallback },

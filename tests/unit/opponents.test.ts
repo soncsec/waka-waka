@@ -3,6 +3,7 @@ import { OPPONENTS, ROUND, STEP_HZ } from '../../src/config/tuning';
 import { levelRow } from '../../src/logic/difficulty';
 import { createGame, stepGame, type GameState } from '../../src/logic/game';
 import { fallbackMaze, type Maze } from '../../src/logic/maze';
+import { OPPOSITE } from '../../src/logic/movement';
 import {
   chaseTarget,
   createOpponents,
@@ -11,6 +12,7 @@ import {
   mayLeave,
   moveInHouse,
   opponentStart,
+  reverseAll,
   type Opponent,
   type TargetContext,
 } from '../../src/logic/opponents';
@@ -20,7 +22,7 @@ const maze = fallbackMaze(1);
 const row = levelRow(1);
 
 function ctx(hero: TargetContext['hero'], murk = { x: 0, y: 0 }): TargetContext {
-  return { maze, hero, murk };
+  return { maze, mode: 'chase', hero, murk };
 }
 
 describe('the cast', () => {
@@ -79,6 +81,26 @@ describe('chaseTarget', () => {
     const near = { x: 10 + OPPONENTS.wispShyDistance - 1, y: 10 };
     expect(chaseTarget('wisp', far, ctx(hero))).toEqual({ x: 10, y: 10 });
     expect(chaseTarget('wisp', near, ctx(hero))).toEqual(homeCorner(maze, 'wisp'));
+  });
+});
+
+describe('scatter', () => {
+  it('sends every opponent to its own corner, whatever the hero does', () => {
+    const hero = { x: 10, y: 10, dir: 'left' as const };
+    for (const name of ['murk', 'gnash', 'bolt', 'wisp'] as const) {
+      expect(chaseTarget(name, { x: 3, y: 3 }, { ...ctx(hero), mode: 'scatter' })).toEqual(
+        homeCorner(maze, name),
+      );
+    }
+  });
+});
+
+describe('reverseAll', () => {
+  it('turns around the opponents out in the maze and leaves the house alone', () => {
+    const cast = createOpponents(maze);
+    reverseAll(cast);
+    expect(cast[0]?.dir).toBe(OPPOSITE[OPPONENTS.startDir]);
+    expect(cast.slice(1).map((o) => o.dir)).toEqual(['up', 'up', 'up']);
   });
 });
 

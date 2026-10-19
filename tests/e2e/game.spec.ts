@@ -53,10 +53,12 @@ test('the hero moves on its own and eats dots for points', async ({ page }) => {
 });
 
 test('Murk catches a hero left alone, and a life is lost', async ({ page }) => {
+  // Each life opens with a scatter phase (M2.2), so the first catch comes later.
+  test.setTimeout(90_000);
   await openGame(page, '?seed=7');
   const start = await snapshot(page);
   expect(start).toMatchObject({ phase: 'ready', lives: 3 });
-  await expect.poll(async () => (await snapshot(page)).phase, { timeout: 30_000 }).toBe('dying');
+  await expect.poll(async () => (await snapshot(page)).phase, { timeout: 60_000 }).toBe('dying');
   await expect.poll(async () => (await snapshot(page)).lives, { timeout: 10_000 }).toBe(2);
   expect((await snapshot(page)).phase).toBe('ready');
 });
@@ -106,6 +108,11 @@ test('a cleared maze shows MAZE CLEARED, then the next maze starts with the scor
   expect(next.dotsLeft).toBeGreaterThan(0);
   expect(next.maze.grid).not.toEqual(first.maze.grid);
   expect(watched.errors).toEqual([]);
+});
+
+test('opponents start each game scattering to their corners', async ({ page }) => {
+  await openGame(page, '?seed=7');
+  expect((await snapshot(page)).mode).toBe('scatter');
 });
 
 test('arrow keys and WASD steer the hero', async ({ page }) => {

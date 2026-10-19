@@ -1,5 +1,6 @@
 import { HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
 import { levelRow } from './difficulty';
+import { createModeClock, currentMode, tickMode, type Mode, type ModeClock } from './scheduler';
 import { isWalkable, TILE, type Maze } from './maze';
 import {
   chooseToward,
@@ -11,7 +12,14 @@ import {
   type Mover,
   type Point,
 } from './movement';
-import { chaseTarget, createOpponents, mayLeave, moveInHouse, type Opponent } from './opponents';
+import {
+  type Opponent,
+  chaseTarget,
+  createOpponents,
+  mayLeave,
+  moveInHouse,
+  reverseAll,
+} from './opponents';
 
 /**
  * - ready: "READY!" pause; input is buffered.
@@ -44,6 +52,8 @@ export interface GameState {
   phaseTime: number;
   /** Dots and pellets eaten since this life began, for the house release. */
   dotsThisLife: number;
+  /** Scatter/chase position (WW-02); restarts with each life. */
+  modeClock: ModeClock;
   /** Seconds since the hero last ate, for the house release. */
   sinceDot: number;
 }
@@ -81,6 +91,7 @@ export function createGame(maze: Maze, { level = 1, carry }: GameOptions = {}): 
     phase: 'ready',
     phaseTime: 0,
     dotsThisLife: 0,
+    modeClock: createModeClock(),
     sinceDot: 0,
   };
   resetActors(state);
@@ -94,6 +105,12 @@ function resetActors(state: GameState): void {
   state.wanted = null;
   state.dotsThisLife = 0;
   state.sinceDot = 0;
+  state.modeClock = createModeClock();
+}
+
+/** Whether the opponents are scattering to their corners or chasing. */
+export function modeOf(state: GameState): Mode {
+  return currentMode(state.row, state.modeClock);
 }
 
 function enter(state: GameState, phase: Phase): void {
@@ -197,7 +214,8 @@ function moveOpponents(
   const { maze } = state;
   const hero = { ...tileOf(state.hero, maze.width), dir: state.hero.dir };
   const murk = state.opponents[0] as Opponent;
-  const ctx = { maze, hero, murk: tileOf(murk, maze.width) };
+  if (tickMode(state.row, state.modeClock, dt)) reverseAll(state.opponents);
+  const ctx = { maze, mode: modeOf(state), hero, murk: tileOf(murk, maze.width) };
 
   // Release waiting opponents one at a time, in cast order.
   const next = state.opponents.findIndex((o) => o.state === 'waiting');
