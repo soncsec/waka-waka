@@ -71,19 +71,19 @@ describe('eating scared opponents', () => {
     }
   }
 
-  it('scores 200, 400, 800 and 1600 on one pellet, and turns them into eyes', () => {
+  it('scores 100, 300, 700 and 1500 on one pellet, and turns them into eyes', () => {
     const state = playing();
     const score = state.score;
     crowdTheHero(state);
     stepGame(state, DT);
     expect(state.phase).toBe('playing');
-    expect(state.score - score).toBe(200 + 400 + 800 + 1600);
+    expect(state.score - score).toBe(100 + 300 + 700 + 1500);
     expect(state.opponents.map((o) => o.state)).toEqual(['eyes', 'eyes', 'eyes', 'eyes']);
     expect(state.opponents.some((o) => o.scared)).toBe(false);
   });
 
   it('starts the points again on the next pellet; past the table the last value repeats', () => {
-    expect(SCORE.eaten).toEqual([200, 400, 800, 1600]);
+    expect(SCORE.eaten).toEqual([100, 300, 700, 1500]);
     const state = playing();
     crowdTheHero(state);
     stepGame(state, DT);
@@ -91,7 +91,7 @@ describe('eating scared opponents', () => {
     crowdTheHero(state);
     state.eatChain = 5;
     stepGame(state, DT);
-    expect(state.score - score).toBe(4 * 1600);
+    expect(state.score - score).toBe(4 * 1500);
   });
 
   it('sends the eyes home, through the door, and out again', () => {

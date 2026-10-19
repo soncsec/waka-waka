@@ -1,6 +1,6 @@
-# Waka-Waka — Originality review (M2.7, draft)
+# Waka-Waka — Originality review (M2.7)
 
-> **Status:** Draft for the owner's decision, 2026-10-19. This is a product review, not legal advice. Nothing below has been changed in the game yet; every change listed is a proposal.
+> **Status:** Reviewed by the owner on 2026-10-19. This is a product review, not legal advice. Decisions and what has been done are listed under **Owner decisions** below.
 
 PROJECT.md requires original names, shapes, colours and mazes, and nothing that copies Pac-Man's names, characters, maze layouts or trade dress. Game rules themselves are generally not protected, but courts have weighed a clone's overall look and feel: character shapes and colours, maze layouts and sound effects (for example *Atari v. North American Philips*, 1982, and the *Mighty Mouth* case, 1983 — see Sources). So the risk comes from **many small matches adding up**, not from any single one.
 
@@ -26,6 +26,20 @@ PROJECT.md requires original names, shapes, colours and mazes, and nothing that 
 
 - **Keep "Waka-Waka":** it's catchy and already live on the portal. The risk is association: players and Bandai Namco will read it as a nod to Pac-Man, and every other match in this table gets weighed with that in mind.
 - **Rename:** options in the same playful, onomatopoeic spirit, checked for obvious clashes before choosing: *Chomp Circuit*, *Neon Muncher*, *Gobble Grid*, *Maze Muncher*. A rename touches the repo slug, portal card and URL, so it is cheapest now.
+
+## Owner decisions (2026-10-19)
+
+| Finding | Decision | Done |
+|---|---|---|
+| 1 Name | Keep "Waka-Waka" | — |
+| 2 On-screen text | Change | "GET SET!" in neon pink; "RUN ENDED" in amber |
+| 4 Points | Change | 100, 300, 700, 1500 |
+| 5 Targeting | Change the numbers | Gnash 3 ahead (was 4); Bolt pivots 3 ahead (was 2); Wisp shy within 6 (was 8) |
+| 6 Scatter/chase timing | Change | 6/22/6/22/4/25/4/∞ s |
+| 7 Extra life | Change | 12,000 |
+| 3 Scared look | Redesign, screenshots for approval | Separate PR |
+| 12, 13 Sound and bonus item | Rules for M5 and M3.3 | Added to the roadmap |
+| — Next production release | Only after these fixes | — |
 
 ## Recommended order
 
