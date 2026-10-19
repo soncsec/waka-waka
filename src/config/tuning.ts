@@ -27,11 +27,11 @@ export const OPPONENTS = {
   /** Direction an opponent takes when it comes out of the door. */
   startDir: 'left',
   /** Gnash aims this far ahead of the hero. */
-  gnashAhead: 4,
+  gnashAhead: 3,
   /** Bolt pivots on the point this far ahead of the hero. */
-  boltAhead: 2,
+  boltAhead: 3,
   /** Wisp gives up the chase when closer than this. */
-  wispShyDistance: 8,
+  wispShyDistance: 6,
   /** Bolt and Wisp wait this far either side of the house centre. */
   houseSpacing: 2,
   /** How far waiting opponents bob up and down from the house centre. */
@@ -78,13 +78,13 @@ export const LEVELS: readonly LevelRow[] = [
     releaseDots: [0, 0, 30, 60],
     releaseIdleSeconds: 4,
     modes: [
-      { mode: 'scatter', seconds: 7 },
-      { mode: 'chase', seconds: 20 },
-      { mode: 'scatter', seconds: 7 },
-      { mode: 'chase', seconds: 20 },
-      { mode: 'scatter', seconds: 5 },
-      { mode: 'chase', seconds: 20 },
-      { mode: 'scatter', seconds: 5 },
+      { mode: 'scatter', seconds: 6 },
+      { mode: 'chase', seconds: 22 },
+      { mode: 'scatter', seconds: 6 },
+      { mode: 'chase', seconds: 22 },
+      { mode: 'scatter', seconds: 4 },
+      { mode: 'chase', seconds: 25 },
+      { mode: 'scatter', seconds: 4 },
       { mode: 'chase', seconds: Infinity },
     ],
     scaredSeconds: 6,
@@ -96,7 +96,7 @@ export const LEVELS: readonly LevelRow[] = [
 /** Round rules. Times are in seconds. */
 export const ROUND = {
   lives: 3,
-  /** "READY!" pause before play starts, and again after losing a life. */
+  /** "GET SET!" pause before play starts, and again after losing a life. */
   readySeconds: 2,
   /** Pause after being caught, before the next life or game over. */
   deathSeconds: 1.5,
@@ -107,7 +107,7 @@ export const ROUND = {
   /** Game over ignores input this long, so a last swipe doesn't restart at once. */
   restartDelay: 1,
   /** One extra life when the score first reaches this. */
-  extraLifeAt: 10_000,
+  extraLifeAt: 12_000,
   /** Most lives a player can hold (the HUD has room for this many minus one). */
   maxLives: 5,
 } as const;
@@ -130,7 +130,7 @@ export const SCORE = {
   dot: 10,
   pellet: 50,
   /** Points for each scared opponent eaten on one pellet, in order; the last repeats. */
-  eaten: [200, 400, 800, 1600],
+  eaten: [100, 300, 700, 1500],
 } as const;
 
 /** High score (WW-08): the only thing kept in localStorage. */
@@ -179,8 +179,10 @@ export const NEON = {
   eyeWhite: 0xffffff,
   pupil: 0x151040,
   gnashTeeth: 0xfff8e0,
-  ready: '#ffe14d',
-  gameOver: '#ff4d7e',
+  /** GET SET! and MAZE CLEARED! (M2.7: not Pac-Man's yellow READY!). */
+  ready: '#ff7ae0',
+  /** RUN ENDED (M2.7: not Pac-Man's red GAME OVER). */
+  gameOver: '#ffb340',
   hud: '#2ef2c8',
   hudDim: '#7a6fb8',
 } as const;

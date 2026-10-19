@@ -88,7 +88,7 @@ test('a cleared maze shows MAZE CLEARED, then the next maze starts with the scor
   const watched = watchPage(page);
   await openGame(page, '?seed=7');
   const first = await snapshot(page);
-  expect(first.message).toBe('READY!');
+  expect(first.message).toBe('GET SET!');
   await expect
     .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
     .toBeGreaterThan(0);

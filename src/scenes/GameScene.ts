@@ -69,7 +69,7 @@ export interface GameSnapshot {
   /** scatter or chase (WW-02). */
   mode: 'scatter' | 'chase';
   dotsLeft: number;
-  /** The centre message (READY! or MAZE CLEARED!) while it shows, else null. */
+  /** The centre message (GET SET! or MAZE CLEARED!) while it shows, else null. */
   message: string | null;
   maze: { grid: readonly string[]; usedFallback: boolean };
   /** Logical canvas size and the current whole-number zoom. */
@@ -369,8 +369,8 @@ export class GameScene extends Phaser.Scene {
     // Lives in reserve: the one being played isn't shown.
     this.lifeIcons.forEach((icon, i) => icon.setVisible(i < lives - 1));
     this.message.setVisible(phase === 'ready' || phase === 'cleared');
-    this.message.setText(phase === 'cleared' ? 'MAZE CLEARED!' : 'READY!');
-    // The controls hint shows with READY! on the first maze only.
+    this.message.setText(phase === 'cleared' ? 'MAZE CLEARED!' : 'GET SET!');
+    // The controls hint shows with GET SET! on the first maze only.
     this.hint.setVisible(phase === 'ready' && this.level === 1);
     this.gameOverPanel.setVisible(phase === 'gameover');
   }
@@ -378,9 +378,9 @@ export class GameScene extends Phaser.Scene {
   private drawMessages(): void {
     const { house } = this.state.maze;
     const style = { fontFamily: HUD.font, fontSize: `${HUD.fontSize}px`, color: NEON.ready };
-    // READY! sits on the corridor just below the ghost house.
+    // GET SET! sits on the corridor just below the ghost house.
     const below = toScreen({ x: 0, y: house.y1 + 1 });
-    this.message = this.add.text(GAME_WIDTH / 2, below.y, 'READY!', style).setOrigin(0.5);
+    this.message = this.add.text(GAME_WIDTH / 2, below.y, 'GET SET!', style).setOrigin(0.5);
     const dim = { ...style, color: NEON.hudDim };
     // On a dark strip, so it reads over the dots.
     const strip = { ...dim, backgroundColor: cssColour(NEON.background), padding: { x: 4, y: 2 } };
@@ -393,7 +393,7 @@ export class GameScene extends Phaser.Scene {
       .rectangle(0, 0, GAME_WIDTH - 4 * TILE_SIZE, 4 * TILE_SIZE, NEON.background, 0.92)
       .setStrokeStyle(2, NEON.wallLine);
     const title = this.add
-      .text(0, -16, 'GAME OVER', { ...style, color: NEON.gameOver })
+      .text(0, -16, 'RUN ENDED', { ...style, color: NEON.gameOver })
       .setOrigin(0.5);
     // The run seed, so a player can report or replay this run with ?seed=.
     const seed = this.add.text(0, 0, `SEED ${this.seed}`, dim).setOrigin(0.5);

@@ -28,7 +28,7 @@ import {
 } from './opponents';
 
 /**
- * - ready: "READY!" pause; input is buffered.
+ * - ready: "GET SET!" pause; input is buffered.
  * - playing: everyone moves.
  * - dying: the hero was caught; a pause before the next life.
  * - gameover: no lives left.
