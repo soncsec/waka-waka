@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import {
+  BATTERY_FRAMES,
+  batteryPixels,
   HERO_MOUTH_FRAMES,
   heroPixels,
   opponentPixels,
@@ -12,6 +14,7 @@ import {
 } from '../art/sprites';
 import { drawWalls, type Pixels } from '../art/walls';
 import {
+  BONUS_ART,
   GAME_HEIGHT,
   GAME_WIDTH,
   HERO,
@@ -37,9 +40,11 @@ import {
   nextMazeDue,
   powerUp,
   setWanted,
+  showBonus,
   stepGame,
   tileAt,
   type Carry,
+  type Eaten,
   type GameState,
   type Phase,
 } from '../logic/game';
@@ -68,6 +73,8 @@ export interface GameSnapshot {
   }[];
   /** Seconds of scare left after a power pellet. */
   scaredTime: number;
+  /** The bonus battery (M3.3): whether it is on screen, and the points popup text if showing. */
+  bonus: { showing: boolean; popup: string | null };
   wanted: Dir | null;
   score: number;
   lives: number;
@@ -85,6 +92,7 @@ export interface GameSnapshot {
 }
 
 const PELLET_TEXTURE = 'pellet';
+const batteryTexture = (frame: number): string => `battery-${frame}`;
 const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
 const scaredTexture = (index: number, look: OpponentLook, frame: number): string =>
   `scared-${index}-${look}-${frame}`;
@@ -135,6 +143,11 @@ export class GameScene extends Phaser.Scene {
   /** Wisp's Phase tell: a faint Wisp where it will come out (WW-10). */
   private phaseMark!: Phaser.GameObjects.Image;
   private pellets = new Map<string, Phaser.GameObjects.Image>();
+  /** The bonus battery on the hero's start spot (M3.3), and its points popup. */
+  private bonus!: Phaser.GameObjects.Image;
+  private bonusPopup!: Phaser.GameObjects.Text;
+  /** Time (ms, scene clock) the popup hides; 0 when hidden. */
+  private popupUntil = 0;
   private hero!: Phaser.GameObjects.Image;
   private opponents: Phaser.GameObjects.Image[] = [];
   private scoreText!: Phaser.GameObjects.Text;
@@ -168,6 +181,7 @@ export class GameScene extends Phaser.Scene {
     this.lifeIcons = [];
     this.swipeStart = null;
     this.pending = 0;
+    this.popupUntil = 0;
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
     this.state = createGame(built.maze, { level: this.level, carry: this.carry });
@@ -177,6 +191,7 @@ export class GameScene extends Phaser.Scene {
     this.makeTextures();
     this.drawMaze();
     this.drawHud();
+    this.drawBonus();
     this.dashLine = this.add.graphics({ fillStyle: { color: NEON.opponents[2] } });
     this.opponents = this.state.opponents.map((o, i) =>
       this.add.image(0, 0, opponentTexture(i, o.dir, 0)),
@@ -196,7 +211,7 @@ export class GameScene extends Phaser.Scene {
     const dt = 1 / STEP_HZ;
     let steps = 0;
     while (this.pending >= dt && steps < MAX_STEPS_PER_FRAME) {
-      for (const e of stepGame(this.state, dt)) this.removePickup(e.x, e.y, e.kind);
+      for (const e of stepGame(this.state, dt)) this.removePickup(e, time);
       this.pending -= dt;
       steps++;
     }
@@ -219,6 +234,7 @@ export class GameScene extends Phaser.Scene {
     const lit =
       this.steadyPellets || Math.floor((time / 1000) * PICKUP_ART.pelletBlinkHz * 2) % 2 === 0;
     for (const p of this.pellets.values()) p.setVisible(lit);
+    this.placeBonus(time);
   }
 
   snapshot(): GameSnapshot {
@@ -237,6 +253,10 @@ export class GameScene extends Phaser.Scene {
         special: this.state.specials[i]?.phase ?? 'ready',
       })),
       scaredTime: this.state.scaredTime,
+      bonus: {
+        showing: this.bonus.visible,
+        popup: this.bonusPopup.visible ? this.bonusPopup.text : null,
+      },
       wanted: this.state.wanted,
       score: this.state.score,
       lives: this.state.lives,
@@ -281,6 +301,11 @@ export class GameScene extends Phaser.Scene {
   /** Test hook: the effect of a power pellet, without walking to one. */
   powerUp(): void {
     powerUp(this.state);
+  }
+
+  /** Test hook: puts the bonus battery out now (M3.3). */
+  showBonus(): void {
+    showBonus(this.state);
   }
 
   /** Test hook: makes an opponent's special move due (WW-10). */
@@ -478,8 +503,32 @@ export class GameScene extends Phaser.Scene {
     this.gameOverPanel = this.add.container(GAME_WIDTH / 2, middle.y, [panel, title, seed, hint]);
   }
 
-  private removePickup(x: number, y: number, kind: 'dot' | 'pellet'): void {
-    if (kind === 'pellet') {
+  /** The battery and its popup (M3.3). The bars charge up in a loop; held full for reduced motion. */
+  private drawBonus(): void {
+    const p = toScreen(this.state.maze.start);
+    this.bonus = this.add.image(p.x, p.y, batteryTexture(BATTERY_FRAMES - 1)).setVisible(false);
+    const style = {
+      fontFamily: HUD.font,
+      fontSize: `${HUD.fontSize}px`,
+      color: cssColour(NEON.battery),
+    };
+    this.bonusPopup = this.add.text(p.x, p.y, '', style).setOrigin(0.5).setVisible(false);
+  }
+
+  private placeBonus(time: number): void {
+    const showing = this.state.bonusTime > 0 && this.state.phase === 'playing';
+    const frame = this.steadyPellets
+      ? BATTERY_FRAMES - 1
+      : Math.floor((time / 1000) * BONUS_ART.chargeHz) % BATTERY_FRAMES;
+    this.bonus.setVisible(showing).setTexture(batteryTexture(frame));
+    this.bonusPopup.setVisible(time < this.popupUntil);
+  }
+
+  private removePickup({ x, y, kind }: Eaten, time: number): void {
+    if (kind === 'bonus') {
+      this.bonusPopup.setText(String(this.state.row.bonusPoints));
+      this.popupUntil = time + BONUS_ART.popupSeconds * 1000;
+    } else if (kind === 'pellet') {
       this.pellets.get(`${x},${y}`)?.destroy();
       this.pellets.delete(`${x},${y}`);
     } else {
@@ -542,6 +591,10 @@ export class GameScene extends Phaser.Scene {
         this.addPixelTexture(dashTexture(dir), dashPixels(dir));
       if (!this.textures.exists(lungeTexture(dir)))
         this.addPixelTexture(lungeTexture(dir), lungePixels(dir));
+    }
+    for (let frame = 0; frame < BATTERY_FRAMES; frame++) {
+      const key = batteryTexture(frame);
+      if (!this.textures.exists(key)) this.addPixelTexture(key, batteryPixels(frame + 1));
     }
     for (let frame = 0; frame < SPARK_FRAMES; frame++) {
       const key = sparkTexture(frame);

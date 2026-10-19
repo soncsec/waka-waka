@@ -7,7 +7,7 @@
 | M0 Setup | Done |
 | M1 First playable | Done |
 | M2 Full classic game | In progress (M2.6 owner playtest) |
-| M3 Endless and smarter | Not started |
+| M3 Endless and smarter | In progress (M3.1 and M3.4 wait for the M2.6 playtest) |
 | M4 Mobile and polish | Not started |
 | M5 Sound | Not started |
 | M6 Release | Not started |
@@ -57,7 +57,7 @@
 
 - [ ] M3.1 Fill the difficulty table rows up to the plateau around maze 20 (WW-07)
 - [x] M3.2 Special moves: Frenzy (Murk), Dash (Bolt), Lunge (Gnash), Phase (Wisp), each with a visible tell
-- [ ] M3.3 Bonus item, twice per maze (not fruit: something that fits Look B, per docs/ORIGINALITY.md)
+- [x] M3.3 Bonus item, twice per maze (not fruit: something that fits Look B, per docs/ORIGINALITY.md): a neon battery on the hero's start spot, worth more on later mazes
 - [ ] M3.4 Balance pass from the owner's playtest notes
 
 **Acceptance criteria:**

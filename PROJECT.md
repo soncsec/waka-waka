@@ -52,6 +52,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-18 | First live on games.soncrant.com after M1 (the first chase), each release with owner approval; the card keeps its final summary |
 | 2026-10-18 | Product review after M1 (tab "Product review" in the Claude Docs doc): quick wins pulled forward into M2.0; the next production release only after M2.3; the difficulty table starts in M2.1; an owner playtest and the originality review close M2; a phone readability check in M4 |
 | 2026-10-19 | Originality review (docs/ORIGINALITY.md): keep the name Waka-Waka; change the on-screen texts, points, timings, extra-life score and targeting numbers; redesign the scared look; no "waka" chomp or siren in M5 and no fruit bonus in M3.3; the next production release waits for these fixes |
+| 2026-10-19 | Bonus item (M3.3): a neon battery cell, chosen by the owner; it appears twice per maze on the hero's start spot and is worth more on later mazes |
 
 ## 5. Open questions
 

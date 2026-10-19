@@ -16,6 +16,8 @@ export interface TestHook {
   powerUp(): void;
   /** Makes an opponent's special move due (0 = Murk's Frenzy). */
   primeSpecial(index: number): void;
+  /** Puts the bonus battery out on the hero's start spot (M3.3). */
+  showBonus(): void;
 }
 
 declare global {
@@ -42,6 +44,10 @@ export function installTestHook(game: Phaser.Game): void {
     primeSpecial: (index: number) => {
       const s = game.scene.getScene('Game') as GameScene | null;
       if (s && game.scene.isActive('Game')) s.primeSpecial(index);
+    },
+    showBonus: () => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      if (s && game.scene.isActive('Game')) s.showBonus();
     },
   };
 }

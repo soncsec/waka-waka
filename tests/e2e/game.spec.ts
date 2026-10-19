@@ -133,6 +133,39 @@ test('a power pellet scares the opponents for a while, without errors', async ({
   expect(watched.errors).toEqual([]);
 });
 
+test.describe('the bonus battery (M3.3)', () => {
+  test('shows on the start spot during play, then goes after its time', async ({ page }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    // Let the hero move off the start spot first.
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => window.__game?.showBonus());
+    await expect.poll(async () => (await snapshot(page)).bonus.showing).toBe(true);
+    await expect
+      .poll(async () => (await snapshot(page)).bonus.showing, { timeout: 20_000 })
+      .toBe(false);
+    expect(watched.errors).toEqual([]);
+  });
+
+  test('eating it scores the maze 1 points and pops them up', async ({ page }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    // Out before play starts, so the hero eats it with its first step off the start spot.
+    await page.evaluate(() => window.__game?.showBonus());
+    await expect
+      .poll(async () => (await snapshot(page)).bonus.popup, { timeout: 15_000 })
+      .toBe('250');
+    const snap = await snapshot(page);
+    expect(snap.bonus.showing).toBe(false);
+    expect(snap.score).toBeGreaterThanOrEqual(250);
+    await expect.poll(async () => (await snapshot(page)).bonus.popup).toBeNull();
+    expect(watched.errors).toEqual([]);
+  });
+});
+
 test.describe('high score (WW-08)', () => {
   const KEY = 'waka-waka.highScore';
 
