@@ -5,8 +5,8 @@
 | Milestone | Status |
 |---|---|
 | M0 Setup | Done |
-| M1 First playable | In progress |
-| M2 Full classic game | Not started |
+| M1 First playable | Done |
+| M2 Full classic game | In progress (M2.6 owner playtest) |
 | M3 Endless and smarter | Not started |
 | M4 Mobile and polish | Not started |
 | M5 Sound | Not started |
@@ -27,7 +27,7 @@
 - [x] M1.3 Hero grid movement with turn buffering, from the keyboard and from swipes (WW-01, WW-06); eating dots, score in the HUD
 - [x] M1.4 Murk chases the hero; lives, death, game over and restart
 - [x] M1.5 Playwright: boots clean, hero moves and eats dots, Murk catches the hero, through the test hook
-- [ ] M1.6 First production release (owner approval): security report (CodeQL, ESLint, `npm audit`, gitleaks, ZAP), a 256×192 card image and `"status": "live"` by PR to `soncsec/games-portal` (the summary stays as it is), `scripts/release.sh deploy`, then the portal release and its production check
+- [x] M1.6 First production release (owner approval): security report (CodeQL, ESLint, `npm audit`, gitleaks, ZAP), a 256×192 card image and `"status": "live"` by PR to `soncsec/games-portal` (the summary stays as it is), `scripts/release.sh deploy`, then the portal release and its production check (game released 2026-10-18; portal card live 2026-10-19; second release 20261019T040157Z-ba82b25b with M2.0–M2.5 and the originality fixes)
 
 **Acceptance criteria:**
 - The owner plays a real chase on staging, on desktop and on a touchscreen phone or tablet.
