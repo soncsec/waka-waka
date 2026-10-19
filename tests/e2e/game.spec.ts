@@ -256,6 +256,47 @@ test("Gnash's Lunge on maze 3: a tell, a jump, a pause, then ready (WW-10)", asy
   expect(watched.errors).toEqual([]);
 });
 
+test("Wisp's Phase on maze 5: see-through, through a wall, then ready (WW-10)", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  for (const level of [2, 3, 4, 5]) {
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    await page.evaluate(() => window.__game?.skipMaze());
+    await expect.poll(async () => (await snapshot(page)).level, { timeout: 15_000 }).toBe(level);
+  }
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { phaseSeen: string[] }).phaseSeen = seen;
+    const tick = (): void => {
+      const snap = window.__game?.snapshot();
+      const wisp = snap?.opponents[3];
+      const phase = wisp?.special;
+      if (phase && seen[seen.length - 1] !== phase) seen.push(phase);
+      if (snap?.phase === 'playing' && wisp && !seen.includes('active')) {
+        // Keep the hero safe until Wisp has phased: scare the others while Wisp is
+        // still in the house (so Wisp itself is never scared)...
+        if (wisp.state !== 'out' && snap.scaredTime === 0) window.__game?.powerUp();
+        // ...and keep Phase primed once Wisp is out (a lost life would reset it).
+        if (wisp.state === 'out' && !wisp.scared) window.__game?.primeSpecial(3);
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const seen = (): Promise<string[]> =>
+    page.evaluate(() => (window as unknown as { phaseSeen: string[] }).phaseSeen);
+  await expect.poll(seen, { timeout: 60_000 }).toEqual(expect.arrayContaining(['tell', 'active']));
+  await expect.poll(async () => (await seen()).at(-1), { timeout: 10_000 }).toBe('ready');
+  const order = await seen();
+  expect(order.indexOf('tell')).toBeLessThan(order.indexOf('active'));
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.

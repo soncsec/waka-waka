@@ -1,6 +1,6 @@
-# Waka-Waka — Special moves (M3.2 design, proposed)
+# Waka-Waka — Special moves (M3.2)
 
-> **Status:** Proposal for the owner's approval, 2026-10-19. Nothing is built yet. Numbers are starting values for the difficulty table (WW-07) and will be tuned in M3.4.
+> **Status:** Approved by the owner on 2026-10-19 (decision WW-10) and built in M3.2: Frenzy, Dash, Lunge and Phase. Numbers are the starting values in the difficulty table (WW-07) and will be tuned in M3.4.
 
 PROJECT.md gives each opponent a special move with a visible tell: **Frenzy** (Murk, from maze 1), **Dash** (Bolt, from maze 2), **Lunge** (Gnash, from maze 3) and **Phase** (Wisp, from maze 5). The goal is that every move is **readable and escapable**: a player who watches the tell can always react.
 

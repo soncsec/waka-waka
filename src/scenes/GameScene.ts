@@ -23,6 +23,7 @@ import {
   OPPONENT_ART,
   PICKUP_ART,
   ROUND,
+  PHASE_ART,
   SCARED_ART,
   DASH_ART,
   STEP_HZ,
@@ -46,7 +47,7 @@ import { buildMaze, TILE } from '../logic/maze';
 import { DIR_VEC, DIRS, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
 import { formatHighScore, parseHighScore } from '../logic/highscore';
-import { primeSpecial, type SpecialPhase } from '../logic/specials';
+import { phaseExitOf, primeSpecial, type SpecialPhase } from '../logic/specials';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
 
@@ -131,6 +132,8 @@ export class GameScene extends Phaser.Scene {
   private dots!: Phaser.GameObjects.Graphics;
   /** Bolt's Dash tell: a dotted line down the corridor it will shoot along (WW-10). */
   private dashLine!: Phaser.GameObjects.Graphics;
+  /** Wisp's Phase tell: a faint Wisp where it will come out (WW-10). */
+  private phaseMark!: Phaser.GameObjects.Image;
   private pellets = new Map<string, Phaser.GameObjects.Image>();
   private hero!: Phaser.GameObjects.Image;
   private opponents: Phaser.GameObjects.Image[] = [];
@@ -178,6 +181,10 @@ export class GameScene extends Phaser.Scene {
     this.opponents = this.state.opponents.map((o, i) =>
       this.add.image(0, 0, opponentTexture(i, o.dir, 0)),
     );
+    this.phaseMark = this.add
+      .image(0, 0, opponentTexture(3, 'down', 0))
+      .setAlpha(PHASE_ART.markAlpha)
+      .setVisible(false);
     this.hero = this.add.image(0, 0, heroTexture(this.state.hero.dir, 1));
     this.drawMessages();
     this.placeActors(0);
@@ -346,6 +353,7 @@ export class GameScene extends Phaser.Scene {
   private placeActors(time: number): void {
     const { hero, opponents, phase } = this.state;
     this.drawDashLine();
+    this.placePhaseMark();
     const chomping = phase === 'playing' && hero.moving;
     const frame = chomping
       ? Math.floor((time / 1000) * HERO.chompHz) % HERO_MOUTH_FRAMES.length
@@ -367,6 +375,9 @@ export class GameScene extends Phaser.Scene {
       // Lunge (WW-10): after a miss, Gnash shakes its head.
       const recovering = i === 1 && this.state.specials[1]?.phase === 'recover';
       const shake = recovering ? (Math.floor(seconds * DASH_ART.shakeHz) % 2) * 2 - 1 : 0;
+      // Phase (WW-10): Wisp is see-through while it gets ready and drifts through the wall.
+      const phasing = i === 3 && (this.state.specials[3]?.phase ?? 'ready') !== 'ready';
+      img.setAlpha(phasing ? PHASE_ART.alpha : 1);
       img.setPosition(p.x + shake, p.y + lift).setTexture(this.opponentKey(i, o, mFrame, seconds));
       img.setVisible(phase !== 'gameover');
     });
@@ -395,6 +406,18 @@ export class GameScene extends Phaser.Scene {
     const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
     const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
     return scaredTexture(i, flash ? 'flash' : 'scared', frame);
+  }
+
+  /** Phase tell (WW-10): a faint Wisp on the far side of the wall, where it will come out. */
+  private placePhaseMark(): void {
+    const s = this.state.specials[3];
+    const ph = this.state.row.phase;
+    const exit = s && ph && s.phase === 'tell' ? phaseExitOf(s, ph.wall) : null;
+    this.phaseMark.setVisible(exit !== null);
+    if (exit) {
+      const p = toScreen(exit);
+      this.phaseMark.setPosition(p.x, p.y);
+    }
   }
 
   /** Dash tell (WW-10): dots from Bolt down the corridor, up to the dash range or a wall. */

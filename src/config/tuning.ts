@@ -70,6 +70,21 @@ export interface LevelRow {
   dash: DashRow | null;
   /** Gnash's Lunge (WW-10); null while it is off. */
   lunge: LungeRow | null;
+  /** Wisp's Phase (WW-10); null while it is off. */
+  phase: PhaseRow | null;
+}
+
+/**
+ * Phase: when the hero is within `range` tiles, beyond a straight run of exactly
+ * `wall` wall tiles, Wisp turns see-through for `tell` seconds, drifts through the
+ * wall in `cross` seconds, and may not phase again for `cooldown` seconds.
+ */
+export interface PhaseRow {
+  wall: number;
+  range: number;
+  tell: number;
+  cross: number;
+  cooldown: number;
 }
 
 /**
@@ -134,20 +149,26 @@ const MAZE_1: LevelRow = {
   frenzy: { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 },
   dash: null,
   lunge: null,
+  phase: null,
 };
 
 const DASH: DashRow = { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 };
+
+const MAZE_3: LevelRow = {
+  ...MAZE_1,
+  dash: DASH,
+  lunge: { minRange: 2, maxRange: 3, tell: 0.5, jump: 2, factor: 3, recover: 0.5, cooldown: 8 },
+};
 
 export const LEVELS: readonly LevelRow[] = [
   MAZE_1,
   // Maze 2: Bolt's Dash switches on (PROJECT.md, WW-10).
   { ...MAZE_1, dash: DASH },
   // Maze 3: Gnash's Lunge switches on.
-  {
-    ...MAZE_1,
-    dash: DASH,
-    lunge: { minRange: 2, maxRange: 3, tell: 0.5, jump: 2, factor: 3, recover: 0.5, cooldown: 8 },
-  },
+  MAZE_3,
+  MAZE_3,
+  // Maze 5: Wisp's Phase switches on.
+  { ...MAZE_3, phase: { wall: 2, range: 4, tell: 1, cross: 0.8, cooldown: 12 } },
 ];
 
 /** Round rules. Times are in seconds. */
@@ -174,6 +195,12 @@ export const DASH_ART = {
   dotSize: 3,
   /** Head shakes per second (one pixel each way). */
   shakeHz: 12,
+} as const;
+
+/** Wisp's Phase (WW-10): how see-through Wisp is, and the faint mark where it will come out. */
+export const PHASE_ART = {
+  alpha: 0.4,
+  markAlpha: 0.3,
 } as const;
 
 /** Scared opponents flash for the last `flashSeconds` of the scare, `flashHz` times a second. */

@@ -1,4 +1,5 @@
 import type { LevelRow } from '../config/tuning';
+import { TILE, type Maze } from './maze';
 import { DIR_VEC, DIRS, type Dir, type OpenFn, type Point } from './movement';
 import type { Mode } from './scheduler';
 import type { Opponent } from './opponents';
@@ -46,6 +47,8 @@ export interface SpecialContext {
   hero: Point;
   /** Whether a tile can be walked on. */
   open: OpenFn;
+  /** The maze, for Phase's wall checks. */
+  maze: Maze;
 }
 
 /** An opponent that could use or keep using a special move. */
@@ -71,6 +74,7 @@ export function tickSpecials(specials: SpecialState[], ctx: SpecialContext, dt: 
   tickFrenzy(specials, ctx, dt);
   tickDash(specials, ctx, dt);
   tickLunge(specials, ctx, dt);
+  tickPhase(specials, ctx, dt);
 }
 
 /** Murk's Frenzy: after enough chase, a white-hot tell, then a burst of speed. */
@@ -296,6 +300,124 @@ export function endLunge(s: SpecialState): void {
   s.time = 0;
 }
 
+/**
+ * Where Wisp would come out if it phased from `m` in direction `dir`: past a
+ * straight run of exactly `wall` plain wall tiles (not the house, not the outer
+ * border), onto a corridor tile that is not in the tunnel. Null if it can't.
+ */
+export function phaseExit(
+  maze: Maze,
+  m: Point,
+  dir: Dir,
+  wall: number,
+  open: OpenFn,
+): Point | null {
+  const [dx, dy] = DIR_VEC[dir];
+  const { house } = maze;
+  for (let n = 1; n <= wall; n++) {
+    const x = m.x + dx * n;
+    const y = m.y + dy * n;
+    if (x <= 0 || y <= 0 || x >= maze.width - 1 || y >= maze.height - 1) return null;
+    if (x >= house.x0 && x <= house.x1 && y >= house.y0 && y <= house.y1) return null;
+    if (maze.grid[y]?.[x] !== TILE.wall) return null;
+  }
+  const exit = { x: m.x + dx * (wall + 1), y: m.y + dy * (wall + 1) };
+  if (!open(exit.x, exit.y) || exit.y === maze.tunnelY) return null;
+  return exit;
+}
+
+/**
+ * The way Wisp would phase from `m`, or null: the hero must be within `range`
+ * tiles and nearer the far side of a thin wall than Wisp's side.
+ */
+export function phaseCanStart(
+  specials: readonly SpecialState[],
+  ctx: SpecialContext,
+  m: Opponent,
+): Dir | null {
+  const s = specials[3];
+  const ph = ctx.row.phase;
+  if (!s || !ph || s.phase !== 'ready' || s.cool > 0 || !able(m)) return null;
+  if (othersBusy(specials, 3) || ctx.inTunnel(m)) return null;
+  if (!Number.isInteger(m.x) || !Number.isInteger(m.y)) return null;
+  const primed = s.charge === Number.MAX_VALUE;
+  const near = Math.abs(ctx.hero.x - m.x) + Math.abs(ctx.hero.y - m.y) <= ph.range;
+  if (!primed && !near) return null;
+  for (const dir of DIRS) {
+    const exit = phaseExit(ctx.maze, m, dir, ph.wall, ctx.open);
+    if (!exit) continue;
+    if (primed) return dir;
+    const toExit = Math.abs(ctx.hero.x - exit.x) + Math.abs(ctx.hero.y - exit.y);
+    const toWisp = Math.abs(ctx.hero.x - m.x) + Math.abs(ctx.hero.y - m.y);
+    if (toExit < toWisp) return dir;
+  }
+  return null;
+}
+
+/** Wisp's Phase: turns see-through (tell), then drifts through a thin wall. */
+function tickPhase(specials: SpecialState[], ctx: SpecialContext, dt: number): void {
+  const s = specials[3];
+  const wisp = ctx.opponents[3];
+  const ph = ctx.row.phase;
+  if (!s) return;
+  s.cool = Math.max(0, s.cool - dt);
+  if (!ph || !able(wisp)) {
+    reset(s);
+    return;
+  }
+  const w = wisp as Opponent;
+  switch (s.phase) {
+    case 'ready': {
+      const aim = phaseCanStart(specials, ctx, w);
+      if (!aim) return;
+      s.phase = 'tell';
+      s.time = 0;
+      s.charge = 0;
+      s.aim = aim;
+      s.from = { x: w.x, y: w.y };
+      return;
+    }
+    case 'tell':
+      s.time += dt;
+      if (s.time >= ph.tell) {
+        s.phase = 'active';
+        s.time = 0;
+        w.dir = s.aim ?? w.dir;
+      }
+      return;
+    case 'active': {
+      // Drift straight through the wall to the exit tile, at a steady pace.
+      const exit = s.from && s.aim ? phaseExitOf(s, ph.wall) : null;
+      if (!exit) {
+        reset(s);
+        return;
+      }
+      s.time += dt;
+      const t = Math.min(1, s.time / ph.cross);
+      const from = s.from as Point;
+      w.x = from.x + (exit.x - from.x) * t;
+      w.y = from.y + (exit.y - from.y) * t;
+      if (t >= 1) {
+        w.x = exit.x;
+        w.y = exit.y;
+        reset(s);
+        s.cool = ph.cooldown;
+      }
+      return;
+    }
+    case 'recover':
+      reset(s);
+      return;
+  }
+}
+
+/** The tile a phase comes out on. */
+export function phaseExitOf(s: SpecialState, wall: number): Point | null {
+  if (!s.from || !s.aim) return null;
+  const [dx, dy] = DIR_VEC[s.aim];
+  return { x: s.from.x + dx * (wall + 1), y: s.from.y + dy * (wall + 1) };
+}
+
 /** Speed multiplier from an opponent's special move: slower in a tell, faster in the move. */
 export function specialSpeed(row: LevelRow, index: number, s: SpecialState | undefined): number {
   if (!s || s.phase === 'ready') return 1;
@@ -306,6 +428,8 @@ export function specialSpeed(row: LevelRow, index: number, s: SpecialState | und
   if (index === 2 && row.dash) return s.phase === 'tell' ? 0 : row.dash.factor;
   // Gnash stops to bare its teeth, jumps, then pauses after the jump.
   if (index === 1 && row.lunge) return s.phase === 'active' ? row.lunge.factor : 0;
+  // Wisp holds still while it turns see-through; the drift itself is driven by tickPhase.
+  if (index === 3 && row.phase) return 0;
   return 1;
 }
 

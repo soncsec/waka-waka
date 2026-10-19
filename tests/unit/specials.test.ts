@@ -12,6 +12,8 @@ import {
   endDash,
   lungeCanStart,
   othersBusy,
+  phaseCanStart,
+  phaseExit,
   primeSpecial,
   specialSpeed,
   tickSpecials,
@@ -31,6 +33,7 @@ function ctx(over: Partial<SpecialContext> = {}): SpecialContext {
     inTunnel: () => false,
     hero: { x: 1, y: 25 },
     open: () => true,
+    maze,
     ...over,
   };
 }
@@ -435,5 +438,110 @@ describe('Lunge tell art', () => {
     expect(colourAt(3, 12)).toBe(NEON.gnashTeeth);
     expect(colourAt(6, 9)).toBe(NEON.opponentOutline);
     expect(lungePixels('right').data).not.toEqual(art.data);
+  });
+});
+
+describe('Phase (WW-10)', () => {
+  const row5 = levelRow(5);
+  const ph = row5.phase as NonNullable<LevelRow['phase']>;
+  // Two corridors (rows 1 and 4) with a 2-tile wall between them.
+  const grid = ['#########', '#.......#', '#.#####.#', '#.#####.#', '#.......#', '#########'];
+  const thin = {
+    seed: 0,
+    width: 9,
+    height: 6,
+    grid,
+    start: { x: 6, y: 4 },
+    house: { x0: 0, x1: 0, y0: 5, y1: 5 },
+    tunnelY: -1,
+  };
+  const open = (x: number, y: number): boolean => (grid[y]?.[x] ?? '#') !== '#';
+
+  it('is off before maze 5 and on from maze 5, with a tell of at least 0.5 s', () => {
+    for (const n of [1, 2, 3, 4]) expect(levelRow(n).phase).toBeNull();
+    expect(ph.tell).toBeGreaterThanOrEqual(0.5);
+    expect(ph.wall).toBe(2);
+  });
+
+  it('phaseExit finds the tile past exactly two plain wall tiles, and nothing else', () => {
+    expect(phaseExit(thin, { x: 4, y: 1 }, 'down', 2, open)).toEqual({ x: 4, y: 4 });
+    expect(phaseExit(thin, { x: 4, y: 4 }, 'up', 2, open)).toEqual({ x: 4, y: 1 });
+    expect(phaseExit(thin, { x: 2, y: 1 }, 'right', 2, open)).toBeNull(); // open, not a wall
+    expect(phaseExit(thin, { x: 1, y: 1 }, 'up', 2, open)).toBeNull(); // the outer border
+    const thick = {
+      ...thin,
+      grid: [...grid.slice(0, 4), '#.#####.#', '#.......#', '#########'],
+      height: 7,
+    };
+    const openThick = (x: number, y: number): boolean => (thick.grid[y]?.[x] ?? '#') !== '#';
+    expect(phaseExit(thick, { x: 4, y: 1 }, 'down', 2, openThick)).toBeNull(); // 3 thick
+    const house = { ...thin, house: { x0: 3, x1: 5, y0: 2, y1: 3 } };
+    expect(phaseExit(house, { x: 4, y: 1 }, 'down', 2, open)).toBeNull(); // the ghost house
+    const tunnel = { ...thin, tunnelY: 4 };
+    expect(phaseExit(tunnel, { x: 4, y: 1 }, 'down', 2, open)).toBeNull(); // into the tunnel row
+  });
+
+  it('starts only when the hero is near and on the far side of the wall', () => {
+    const wispAt = (x: number, y: number): Opponent => ({
+      ...(createOpponents(maze)[3] as Opponent),
+      state: 'out',
+      x,
+      y,
+    });
+    const can = (hero: { x: number; y: number }): string | null =>
+      phaseCanStart(createSpecials(), ctx({ row: row5, hero, open, maze: thin }), wispAt(4, 1));
+    expect(can({ x: 4, y: 4 })).toBe('down');
+    expect(can({ x: 5, y: 4 })).toBe('down');
+    expect(can({ x: 2, y: 1 })).toBeNull(); // near, but on Wisp's side
+    expect(can({ x: 7, y: 4 })).toBeNull(); // too far
+  });
+
+  it('in a game: turns see-through and holds still, drifts through in 0.8 s, then cools down', () => {
+    const state = createGame(thin, { level: 5 });
+    state.phase = 'playing';
+    state.modeClock = { index: 1, time: 0 };
+    const wisp = state.opponents[3] as Opponent;
+    Object.assign(wisp, { state: 'out', x: 4, y: 1, dir: 'left' });
+    const step = (): void => {
+      for (const i of [0, 1, 2])
+        Object.assign(state.opponents[i] as Opponent, { state: 'waiting', x: -20 });
+      if (phaseOf(state) === 'playing') Object.assign(state.hero, { x: 7, y: 4, moving: false });
+      stepGame(state, DT);
+    };
+    primeSpecial(state.specials, 3);
+    step();
+    expect(state.specials[3]).toMatchObject({ phase: 'tell', aim: 'down', from: { x: 4, y: 1 } });
+    for (let i = 0; i < ph.tell * STEP_HZ - 2; i++) step();
+    expect(wisp).toMatchObject({ x: 4, y: 1 });
+    for (let i = 0; i < 3; i++) step();
+    expect(state.specials[3]?.phase).toBe('active');
+    for (let i = 0; i < (ph.cross / 2) * STEP_HZ; i++) step();
+    expect(wisp.y).toBeGreaterThan(1.5);
+    expect(wisp.y).toBeLessThan(3.5);
+    for (let i = 0; i < ph.cross * STEP_HZ && state.specials[3]?.phase === 'active'; i++) step();
+    // Out on the far side; it may already have taken one normal step from (4,4).
+    expect(wisp.y).toBe(4);
+    expect(Math.abs(wisp.x - 4)).toBeLessThanOrEqual(row5.opponentSpeed * DT + 1e-9);
+    expect(state.specials[3]?.phase).toBe('ready');
+    expect(state.specials[3]?.cool).toBeGreaterThan(ph.cooldown - 1);
+  });
+
+  it('starts in play when Wisp, moving between centres, reaches a thin wall with the hero beyond', () => {
+    const state = createGame(thin, { level: 5 });
+    state.phase = 'playing';
+    state.modeClock = { index: 1, time: 0 };
+    const wisp = state.opponents[3] as Opponent;
+    Object.assign(wisp, { state: 'out', x: 2.6, y: 1, dir: 'right' });
+    let started = false;
+    for (let i = 0; i < STEP_HZ && !started; i++) {
+      for (const j of [0, 1, 2])
+        Object.assign(state.opponents[j] as Opponent, { state: 'waiting', x: -20 });
+      Object.assign(state.hero, { x: 4, y: 4, moving: false });
+      stepGame(state, DT);
+      started = state.specials[3]?.phase === 'tell';
+    }
+    expect(started).toBe(true);
+    expect(state.specials[3]?.aim).toBe('down');
+    expect(Number.isInteger(state.specials[3]?.from?.x)).toBe(true);
   });
 });
