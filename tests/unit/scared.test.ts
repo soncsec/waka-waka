@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eyesPixels, scaredPixels, SPRITE_SIZE } from '../../src/art/sprites';
+import { scaredPixels, sparkPixels, SPRITE_SIZE } from '../../src/art/sprites';
 import { NEON, SCORE, STEP_HZ } from '../../src/config/tuning';
 import { levelRow } from '../../src/logic/difficulty';
 import { createGame, powerUp, stepGame, type GameState } from '../../src/logic/game';
@@ -193,31 +193,48 @@ describe('chooseShortest', () => {
   });
 });
 
-describe('scared and eyes art', () => {
-  it('keeps each opponent its shape but paints it blue, or white when flashing', () => {
+describe('scared and spark art (M2.7)', () => {
+  const colours = (art: { data: Uint8ClampedArray }): Set<number> => {
+    const out = new Set<number>();
+    for (let i = 0; i < art.data.length; i += 4) {
+      if (art.data[i + 3] === 0) continue;
+      out.add(((art.data[i] ?? 0) << 16) | ((art.data[i + 1] ?? 0) << 8) | (art.data[i + 2] ?? 0));
+    }
+    return out;
+  };
+
+  it('keeps each opponent its shape but short-circuits it: dark body, pale edge, no blue or eyes', () => {
     for (const who of [0, 1, 2, 3] as const) {
       const art = scaredPixels(who, 'scared', 0);
       expect(art.width).toBe(SPRITE_SIZE);
-      const colours = new Set<number>();
-      for (let i = 0; i < art.data.length; i += 4) {
-        if (art.data[i + 3] === 0) continue;
-        colours.add(
-          ((art.data[i] ?? 0) << 16) | ((art.data[i + 1] ?? 0) << 8) | (art.data[i + 2] ?? 0),
-        );
-      }
-      expect(colours.has(NEON.scared)).toBe(true);
-      expect(colours.has(NEON.opponents[who])).toBe(false);
+      const c = colours(art);
+      expect(c.has(NEON.scared)).toBe(true);
+      expect(c.has(NEON.scaredFace)).toBe(true);
+      expect(c.has(NEON.opponents[who])).toBe(false);
+      expect(c.has(NEON.eyeWhite)).toBe(false);
+      // Not Pac-Man's scared blue (0x2121de-ish): the body is dark and low-saturation.
+      const [r, g, b] = [(NEON.scared >> 16) & 255, (NEON.scared >> 8) & 255, NEON.scared & 255];
+      expect(b - Math.max(r, g)).toBeLessThan(64);
       const flash = scaredPixels(who, 'flash', 0);
+      expect(colours(flash).has(NEON.scaredFlashFace)).toBe(true);
       expect(flash.data).not.toEqual(art.data);
     }
   });
 
-  it('draws eaten opponents as eyes only, looking the way they go', () => {
-    const up = eyesPixels('up');
-    const down = eyesPixels('down');
-    expect(up.data).not.toEqual(down.data);
-    const opaque = [...up.data].filter((_, i) => i % 4 === 3 && up.data[i] !== 0).length;
-    expect(opaque).toBeGreaterThan(10);
-    expect(opaque).toBeLessThan((SPRITE_SIZE * SPRITE_SIZE) / 4);
+  it('animates the spark line', () => {
+    expect(scaredPixels(0, 'scared', 0).data).not.toEqual(scaredPixels(0, 'scared', 1).data);
+  });
+
+  it('draws an eaten opponent as a small twinkling spark, not eyes', () => {
+    const [a, b] = [sparkPixels(0), sparkPixels(1)];
+    expect(a.data).not.toEqual(b.data);
+    for (const art of [a, b]) {
+      const c = colours(art);
+      expect(c.has(NEON.sparkCore)).toBe(true);
+      expect(c.has(NEON.pupil)).toBe(false);
+      const opaque = [...art.data].filter((_, i) => i % 4 === 3 && art.data[i] !== 0).length;
+      expect(opaque).toBeGreaterThan(8);
+      expect(opaque).toBeLessThan((SPRITE_SIZE * SPRITE_SIZE) / 4);
+    }
   });
 });

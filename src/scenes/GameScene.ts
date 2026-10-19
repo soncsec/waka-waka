@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import {
-  eyesPixels,
   HERO_MOUTH_FRAMES,
   heroPixels,
   opponentPixels,
   scaredPixels,
+  SPARK_FRAMES,
+  sparkPixels,
   type OpponentLook,
 } from '../art/sprites';
 import { drawWalls, type Pixels } from '../art/walls';
@@ -79,7 +80,7 @@ const PELLET_TEXTURE = 'pellet';
 const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
 const scaredTexture = (index: number, look: OpponentLook, frame: number): string =>
   `scared-${index}-${look}-${frame}`;
-const eyesTexture = (dir: Dir): string => `eyes-${dir}`;
+const sparkTexture = (frame: number): string => `spark-${frame}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
 
@@ -348,14 +349,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  /** Texture for an opponent: eyes when eaten, blue when scared (flashing near the end). */
+  /** Texture for an opponent: a spark when eaten, short-circuited when scared (flashing near the end). */
   private opponentKey(
     i: number,
     o: GameState['opponents'][number],
     frame: number,
     seconds: number,
   ): string {
-    if (o.state === 'eyes' || o.state === 'entering') return eyesTexture(o.dir);
+    if (o.state === 'eyes' || o.state === 'entering') return sparkTexture(frame % SPARK_FRAMES);
     if (!o.scared) return opponentTexture(i, o.dir, frame);
     const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
     const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
@@ -457,8 +458,10 @@ export class GameScene extends Phaser.Scene {
             this.addPixelTexture(key, opponentPixels(who, dir, frame));
         }
       }
-      const eyes = eyesTexture(dir);
-      if (!this.textures.exists(eyes)) this.addPixelTexture(eyes, eyesPixels(dir));
+    }
+    for (let frame = 0; frame < SPARK_FRAMES; frame++) {
+      const key = sparkTexture(frame);
+      if (!this.textures.exists(key)) this.addPixelTexture(key, sparkPixels(frame));
     }
     for (let frame = 0; frame < OPPONENT_ART.frames; frame++) {
       for (const who of [0, 1, 2, 3] as const) {

@@ -121,12 +121,13 @@ export function opponentPixels(who: OpponentIndex, dir: Dir, frame: number): Pix
   });
 }
 
-/** How an opponent is drawn: normal, scared (M2.3), scared and flashing, or eaten (eyes only). */
+/** How a scared opponent is drawn: steady, or flashing as the scare runs out. */
 export type OpponentLook = 'scared' | 'flash';
 
 /**
- * A scared opponent keeps its own shape, so players can still tell them apart,
- * but turns blue (white when flashing) with a small dotted face and a wavy mouth.
+ * A scared opponent (M2.3, redrawn in M2.7) keeps its own shape, so players can
+ * still tell them apart, but looks short-circuited: a dark body with a pale edge
+ * and a zigzag spark across it. Flashing swaps to pink. No eyes.
  */
 export function scaredPixels(who: OpponentIndex, look: OpponentLook, frame: number): Pixels {
   const shape = SHAPES[who] as (typeof SHAPES)[number];
@@ -138,28 +139,33 @@ export function scaredPixels(who: OpponentIndex, look: OpponentLook, frame: numb
     return shape(dx, dy, Math.hypot(dx, dy), Math.atan2(dy, dx), t, px);
   };
   const fill = look === 'flash' ? NEON.scaredFlash : NEON.scared;
-  const face = look === 'flash' ? NEON.scaredFlashFace : NEON.scaredFace;
+  const edge = look === 'flash' ? NEON.scaredFlashFace : NEON.scaredFace;
+  // The spark line zigzags and shifts with the animation frame.
+  const zig = (px: number): number => 7 + ((px + frame) % 4 < 2 ? -1 : 1);
   return paint(SPRITE_SIZE, (px, py) => {
     if (body(px, py)) {
-      const eye = py === 6 && (px === 5 || px === 6 || px === 9 || px === 10);
-      const mouth = px >= 4 && px <= 11 && py === (px % 2 === 0 ? 10 : 11);
-      return eye || mouth ? face : fill;
+      const inner = body(px + 1, py) && body(px - 1, py) && body(px, py + 1) && body(px, py - 1);
+      if (!inner) return edge;
+      return py === zig(px) && px >= 3 && px <= 12 ? edge : fill;
     }
     const touches = body(px + 1, py) || body(px - 1, py) || body(px, py + 1) || body(px, py - 1);
     return touches ? NEON.opponentOutline : null;
   });
 }
 
-/** An eaten opponent: just its eyes, looking the way they travel. */
-export function eyesPixels(dir: Dir): Pixels {
-  const [ox, oy] = LOOK[dir];
+/** Frames of the spark an eaten opponent travels home as. */
+export const SPARK_FRAMES = 2;
+
+/** An eaten opponent: a small twinkling spark (M2.7: not Pac-Man's floating eyes). */
+export function sparkPixels(frame: number): Pixels {
+  const long = frame % 2 === 0;
   return paint(SPRITE_SIZE, (px, py) => {
-    for (const ex of [4, 9]) {
-      if (px === ex + 1 + ox && py === 6 + oy) return NEON.pupil;
-      if (px >= ex && px < ex + 3 && py >= 5 && py < 8) return NEON.eyeWhite;
-      const ring = px >= ex - 1 && px < ex + 4 && py >= 4 && py < 9;
-      if (ring) return NEON.opponentOutline;
-    }
+    const dx = Math.abs(px - 7.5);
+    const dy = Math.abs(py - 7.5);
+    if (dx <= 1 && dy <= 1) return NEON.sparkCore;
+    // Rays along the axes; on the other frame, short diagonal rays instead.
+    if (long && ((dx <= 0.5 && dy <= 4.5) || (dy <= 0.5 && dx <= 4.5))) return NEON.sparkRay;
+    if (!long && Math.abs(dx - dy) < 0.6 && dx <= 3.5) return NEON.sparkRay;
     return null;
   });
 }

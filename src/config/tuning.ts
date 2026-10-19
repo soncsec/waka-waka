@@ -167,10 +167,15 @@ export const NEON = {
   opponents: [0xff4d7e, 0xff9f1c, 0xffe14d, 0xb28dff],
   opponentOutline: 0x0b0820,
   /** Scared opponents: body and face, then the flash colours near the end. */
-  scared: 0x2b4dff,
-  scaredFace: 0xffd0f0,
-  scaredFlash: 0xf4f0ff,
-  scaredFlashFace: 0xff3df2,
+  /** Scared ("short-circuited") opponents: a dark body, a pale edge and spark line;
+   *  pink when the scare is about to end (M2.7: not Pac-Man's blue and white). */
+  scared: 0x262a45,
+  scaredFace: 0x9aa3d6,
+  scaredFlash: 0x4a1640,
+  scaredFlashFace: 0xff7ae0,
+  /** An eaten opponent travels home as a spark. */
+  sparkCore: 0xffffff,
+  sparkRay: 0x7af7ff,
   eyeWhite: 0xffffff,
   pupil: 0x151040,
   gnashTeeth: 0xfff8e0,
