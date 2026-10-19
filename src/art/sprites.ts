@@ -212,3 +212,33 @@ export function dashPixels(dir: Dir): Pixels {
     return touches ? NEON.opponentOutline : null;
   });
 }
+
+/**
+ * Gnash's Lunge tell and jump (WW-10): its box with the mouth wide open and the
+ * teeth bared top and bottom, eyes narrowed towards the way it will jump.
+ */
+export function lungePixels(dir: Dir): Pixels {
+  const [ox, oy] = LOOK[dir];
+  const body = (px: number, py: number): boolean =>
+    px >= 1 &&
+    px <= 14 &&
+    py >= 1 &&
+    py <= 14 &&
+    !((px === 1 || px === 14) && (py === 1 || py === 14));
+  return paint(SPRITE_SIZE, (px, py) => {
+    // Narrow eyes: one row of white with the pupil.
+    for (const ex of [4, 9]) {
+      if (py === 4 && px >= ex && px < ex + 3)
+        return px === ex + 1 + ox && oy >= 0 ? NEON.pupil : NEON.eyeWhite;
+      if (py === 3 && px === ex + 1 + ox && oy < 0) return NEON.pupil;
+    }
+    // The open mouth, with teeth along its top and bottom edges.
+    if (px >= 3 && px <= 12 && py >= 7 && py <= 12) {
+      if ((py === 7 || py === 12) && (px - 3) % 2 === 0) return NEON.gnashTeeth;
+      return NEON.opponentOutline;
+    }
+    if (body(px, py)) return NEON.opponents[1];
+    const touches = body(px + 1, py) || body(px - 1, py) || body(px, py + 1) || body(px, py - 1);
+    return touches ? NEON.opponentOutline : null;
+  });
+}

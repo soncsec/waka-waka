@@ -10,7 +10,7 @@ import type { Opponent } from './opponents';
  * - only one opponent may be in a tell or a move at a time;
  * - never while scared, a spark, in the house or (to start) in the tunnel.
  */
-export type SpecialPhase = 'ready' | 'tell' | 'active';
+export type SpecialPhase = 'ready' | 'tell' | 'active' | 'recover';
 
 export interface SpecialState {
   phase: SpecialPhase;
@@ -70,6 +70,7 @@ export function othersBusy(specials: readonly SpecialState[], index: number): bo
 export function tickSpecials(specials: SpecialState[], ctx: SpecialContext, dt: number): void {
   tickFrenzy(specials, ctx, dt);
   tickDash(specials, ctx, dt);
+  tickLunge(specials, ctx, dt);
 }
 
 /** Murk's Frenzy: after enough chase, a white-hot tell, then a burst of speed. */
@@ -101,6 +102,9 @@ function tickFrenzy(specials: SpecialState[], ctx: SpecialContext, dt: number): 
     case 'active':
       s.time += dt;
       if (s.time >= f.burst) reset(s);
+      return;
+    case 'recover':
+      reset(s);
       return;
   }
 }
@@ -167,6 +171,9 @@ function tickDash(specials: SpecialState[], ctx: SpecialContext, dt: number): vo
       s.time += dt;
       if (s.time > DASH_MAX_SECONDS) endDash(s, d.cooldown);
       return;
+    case 'recover':
+      endDash(s, d.cooldown);
+      return;
   }
 }
 
@@ -205,6 +212,90 @@ export function endDash(s: SpecialState, cooldown: number): void {
   s.cool = cooldown;
 }
 
+/**
+ * The way Gnash would lunge from position `m`, or null: the hero must be
+ * `minRange`..`maxRange` tiles straight ahead (the way Gnash is going), along open tiles.
+ * Like Dash, the game halts Gnash on the centre where this becomes true.
+ */
+export function lungeCanStart(
+  specials: readonly SpecialState[],
+  ctx: SpecialContext,
+  m: Opponent,
+): Dir | null {
+  const s = specials[1];
+  const l = ctx.row.lunge;
+  if (!s || !l || s.phase !== 'ready' || s.cool > 0 || !able(m)) return null;
+  if (othersBusy(specials, 1) || ctx.inTunnel(m)) return null;
+  if (!Number.isInteger(m.x) || !Number.isInteger(m.y)) return null;
+  const [dx, dy] = DIR_VEC[m.dir];
+  if (s.charge === Number.MAX_VALUE) return ctx.open(m.x + dx, m.y + dy) ? m.dir : null;
+  for (let n = 1; n <= l.maxRange; n++) {
+    const x = m.x + dx * n;
+    const y = m.y + dy * n;
+    if (!ctx.open(x, y)) return null;
+    if (x === ctx.hero.x && y === ctx.hero.y) return n >= l.minRange ? m.dir : null;
+  }
+  return null;
+}
+
+/** Gnash's Lunge: sees the hero just ahead, bares its teeth (tell), then jumps. */
+function tickLunge(specials: SpecialState[], ctx: SpecialContext, dt: number): void {
+  const s = specials[1];
+  const gnash = ctx.opponents[1];
+  const l = ctx.row.lunge;
+  if (!s) return;
+  s.cool = Math.max(0, s.cool - dt);
+  if (!l || !able(gnash)) {
+    reset(s);
+    return;
+  }
+  const g = gnash as Opponent;
+  switch (s.phase) {
+    case 'ready': {
+      const aim = lungeCanStart(specials, ctx, g);
+      if (!aim) return;
+      s.phase = 'tell';
+      s.time = 0;
+      s.charge = 0;
+      s.aim = aim;
+      s.from = { x: g.x, y: g.y };
+      return;
+    }
+    case 'tell':
+      s.time += dt;
+      if (s.time >= l.tell) {
+        s.phase = 'active';
+        s.time = 0;
+      }
+      return;
+    case 'active':
+      // The game ends the jump after `jump` tiles (`endLunge`); this cap is a safety net.
+      s.time += dt;
+      if (s.time > DASH_MAX_SECONDS) endLunge(s);
+      return;
+    case 'recover':
+      s.time += dt;
+      if (s.time >= l.recover) {
+        reset(s);
+        s.cool = l.cooldown;
+      }
+      return;
+  }
+}
+
+/** The tile a lunge lands on: `jump` tiles on from where it started. */
+export function lungeTarget(s: SpecialState, jump: number): Point | null {
+  if (!s.from || !s.aim) return null;
+  const [dx, dy] = DIR_VEC[s.aim];
+  return { x: s.from.x + dx * jump, y: s.from.y + dy * jump };
+}
+
+/** Ends a lunge's jump: Gnash pauses ("shakes its head") before carrying on. */
+export function endLunge(s: SpecialState): void {
+  s.phase = 'recover';
+  s.time = 0;
+}
+
 /** Speed multiplier from an opponent's special move: slower in a tell, faster in the move. */
 export function specialSpeed(row: LevelRow, index: number, s: SpecialState | undefined): number {
   if (!s || s.phase === 'ready') return 1;
@@ -213,6 +304,8 @@ export function specialSpeed(row: LevelRow, index: number, s: SpecialState | und
   }
   // Bolt stands still while it takes aim, then shoots.
   if (index === 2 && row.dash) return s.phase === 'tell' ? 0 : row.dash.factor;
+  // Gnash stops to bare its teeth, jumps, then pauses after the jump.
+  if (index === 1 && row.lunge) return s.phase === 'active' ? row.lunge.factor : 0;
   return 1;
 }
 

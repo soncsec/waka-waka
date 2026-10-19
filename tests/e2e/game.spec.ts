@@ -221,6 +221,41 @@ test("Bolt's Dash on maze 2: a tell, a dash, then ready again (WW-10)", async ({
   expect(watched.errors).toEqual([]);
 });
 
+test("Gnash's Lunge on maze 3: a tell, a jump, a pause, then ready (WW-10)", async ({ page }) => {
+  test.setTimeout(90_000);
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  for (const level of [2, 3]) {
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    await page.evaluate(() => window.__game?.skipMaze());
+    await expect.poll(async () => (await snapshot(page)).level, { timeout: 15_000 }).toBe(level);
+  }
+  await expect
+    .poll(async () => (await snapshot(page)).opponents[1]?.state, { timeout: 30_000 })
+    .toBe('out');
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { lungeSeen: string[] }).lungeSeen = seen;
+    const tick = (): void => {
+      const phase = window.__game?.snapshot()?.opponents[1]?.special;
+      if (phase && seen[seen.length - 1] !== phase) seen.push(phase);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    window.__game?.primeSpecial(1);
+  });
+  const seen = (): Promise<string[]> =>
+    page.evaluate(() => (window as unknown as { lungeSeen: string[] }).lungeSeen);
+  // A lunge either misses (tell, jump, pause) or catches the hero (the life resets it).
+  await expect.poll(seen, { timeout: 15_000 }).toEqual(expect.arrayContaining(['tell', 'active']));
+  await expect.poll(async () => (await seen()).at(-1), { timeout: 10_000 }).toBe('ready');
+  const order = await seen();
+  expect(order.indexOf('tell')).toBeLessThan(order.indexOf('active'));
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.
