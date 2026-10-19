@@ -66,6 +66,20 @@ export interface LevelRow {
   tunnelSpeed: number;
   /** Murk's Frenzy (WW-10, docs/SPECIAL-MOVES.md); null while it is off. */
   frenzy: FrenzyRow | null;
+  /** Bolt's Dash (WW-10); null while it is off. */
+  dash: DashRow | null;
+}
+
+/**
+ * Dash: when the hero is in Bolt's straight corridor within `range` tiles, Bolt
+ * stops for `tell` seconds, then shoots along the corridor at `factor` speed to
+ * the next junction; it may not dash again for `cooldown` seconds.
+ */
+export interface DashRow {
+  range: number;
+  tell: number;
+  factor: number;
+  cooldown: number;
 }
 
 /** Frenzy: after `every` seconds of chase, a `tell` at `tellSpeed`, then `burst` seconds at `factor`. */
@@ -82,27 +96,32 @@ export interface ModePhase {
   seconds: number;
 }
 
+const MAZE_1: LevelRow = {
+  heroSpeed: 7.5,
+  opponentSpeed: 7.0,
+  releaseDots: [0, 0, 30, 60],
+  releaseIdleSeconds: 4,
+  modes: [
+    { mode: 'scatter', seconds: 6 },
+    { mode: 'chase', seconds: 22 },
+    { mode: 'scatter', seconds: 6 },
+    { mode: 'chase', seconds: 22 },
+    { mode: 'scatter', seconds: 4 },
+    { mode: 'chase', seconds: 25 },
+    { mode: 'scatter', seconds: 4 },
+    { mode: 'chase', seconds: Infinity },
+  ],
+  scaredSeconds: 6,
+  scaredSpeed: 4.5,
+  tunnelSpeed: 3.5,
+  frenzy: { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 },
+  dash: null,
+};
+
 export const LEVELS: readonly LevelRow[] = [
-  {
-    heroSpeed: 7.5,
-    opponentSpeed: 7.0,
-    releaseDots: [0, 0, 30, 60],
-    releaseIdleSeconds: 4,
-    modes: [
-      { mode: 'scatter', seconds: 6 },
-      { mode: 'chase', seconds: 22 },
-      { mode: 'scatter', seconds: 6 },
-      { mode: 'chase', seconds: 22 },
-      { mode: 'scatter', seconds: 4 },
-      { mode: 'chase', seconds: 25 },
-      { mode: 'scatter', seconds: 4 },
-      { mode: 'chase', seconds: Infinity },
-    ],
-    scaredSeconds: 6,
-    scaredSpeed: 4.5,
-    tunnelSpeed: 3.5,
-    frenzy: { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 },
-  },
+  MAZE_1,
+  // Maze 2: Bolt's Dash switches on (PROJECT.md, WW-10).
+  { ...MAZE_1, dash: { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 } },
 ];
 
 /** Round rules. Times are in seconds. */
@@ -122,6 +141,11 @@ export const ROUND = {
   extraLifeAt: 12_000,
   /** Most lives a player can hold (the HUD has room for this many minus one). */
   maxLives: 5,
+} as const;
+
+/** Bolt's Dash tell (WW-10): the dotted line's dot size in pixels. */
+export const DASH_ART = {
+  dotSize: 3,
 } as const;
 
 /** Scared opponents flash for the last `flashSeconds` of the scare, `flashHz` times a second. */

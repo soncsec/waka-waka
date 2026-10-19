@@ -3,6 +3,7 @@ import {
   HERO_MOUTH_FRAMES,
   heroPixels,
   opponentPixels,
+  dashPixels,
   scaredPixels,
   SPARK_FRAMES,
   sparkPixels,
@@ -22,6 +23,7 @@ import {
   PICKUP_ART,
   ROUND,
   SCARED_ART,
+  DASH_ART,
   STEP_HZ,
   SWIPE,
   TILE_SIZE,
@@ -34,12 +36,13 @@ import {
   powerUp,
   setWanted,
   stepGame,
+  tileAt,
   type Carry,
   type GameState,
   type Phase,
 } from '../logic/game';
 import { buildMaze, TILE } from '../logic/maze';
-import { DIRS, type Dir, type Point } from '../logic/movement';
+import { DIR_VEC, DIRS, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
 import { formatHighScore, parseHighScore } from '../logic/highscore';
 import { primeSpecial, type SpecialPhase } from '../logic/specials';
@@ -85,6 +88,7 @@ const scaredTexture = (index: number, look: OpponentLook, frame: number): string
   `scared-${index}-${look}-${frame}`;
 const sparkTexture = (frame: number): string => `spark-${frame}`;
 const frenzyTexture = (dir: Dir, frame: number): string => `frenzy-${dir}-${frame}`;
+const dashTexture = (dir: Dir): string => `dash-${dir}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
 
@@ -123,6 +127,8 @@ export class GameScene extends Phaser.Scene {
   private usedFallback = false;
   private state!: GameState;
   private dots!: Phaser.GameObjects.Graphics;
+  /** Bolt's Dash tell: a dotted line down the corridor it will shoot along (WW-10). */
+  private dashLine!: Phaser.GameObjects.Graphics;
   private pellets = new Map<string, Phaser.GameObjects.Image>();
   private hero!: Phaser.GameObjects.Image;
   private opponents: Phaser.GameObjects.Image[] = [];
@@ -166,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.makeTextures();
     this.drawMaze();
     this.drawHud();
+    this.dashLine = this.add.graphics({ fillStyle: { color: NEON.opponents[2] } });
     this.opponents = this.state.opponents.map((o, i) =>
       this.add.image(0, 0, opponentTexture(i, o.dir, 0)),
     );
@@ -336,6 +343,7 @@ export class GameScene extends Phaser.Scene {
 
   private placeActors(time: number): void {
     const { hero, opponents, phase } = this.state;
+    this.drawDashLine();
     const chomping = phase === 'playing' && hero.moving;
     const frame = chomping
       ? Math.floor((time / 1000) * HERO.chompHz) % HERO_MOUTH_FRAMES.length
@@ -374,10 +382,29 @@ export class GameScene extends Phaser.Scene {
         Math.floor(seconds * OPPONENT_ART.frameHz * OPPONENT_ART.frenzySpin) % OPPONENT_ART.frames;
       return special === 'tell' ? frenzyTexture(o.dir, fast) : opponentTexture(i, o.dir, fast);
     }
+    if (!o.scared && i === 2 && special !== 'ready') return dashTexture(o.dir);
     if (!o.scared) return opponentTexture(i, o.dir, frame);
     const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
     const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
     return scaredTexture(i, flash ? 'flash' : 'scared', frame);
+  }
+
+  /** Dash tell (WW-10): dots from Bolt down the corridor, up to the dash range or a wall. */
+  private drawDashLine(): void {
+    this.dashLine.clear();
+    const s = this.state.specials[2];
+    const bolt = this.state.opponents[2];
+    const dash = this.state.row.dash;
+    if (!dash || !bolt || s?.phase !== 'tell' || !s.aim) return;
+    const [dx, dy] = DIR_VEC[s.aim];
+    const size = DASH_ART.dotSize;
+    for (let n = 1; n <= dash.range; n++) {
+      const x = bolt.x + dx * n;
+      const y = bolt.y + dy * n;
+      if (tileAt(this.state, x, y) === TILE.wall || tileAt(this.state, x, y) === undefined) break;
+      const p = toScreen({ x, y });
+      this.dashLine.fillRect(p.x - size / 2, p.y - size / 2, size, size);
+    }
   }
 
   /** Life icons, the READY message and the game-over panel follow the phase. */
@@ -478,6 +505,10 @@ export class GameScene extends Phaser.Scene {
         if (!this.textures.exists(hot))
           this.addPixelTexture(hot, opponentPixels(0, dir, frame, NEON.frenzyHot));
       }
+    }
+    for (const dir of DIRS) {
+      if (!this.textures.exists(dashTexture(dir)))
+        this.addPixelTexture(dashTexture(dir), dashPixels(dir));
     }
     for (let frame = 0; frame < SPARK_FRAMES; frame++) {
       const key = sparkTexture(frame);

@@ -175,3 +175,40 @@ export function sparkPixels(frame: number): Pixels {
     return null;
   });
 }
+
+/**
+ * Bolt's Dash tell and dash (WW-10): its diamond stretched long and thin,
+ * pointing the way it will shoot, with its eyes looking that way.
+ */
+export function dashPixels(dir: Dir): Pixels {
+  const along = dir === 'left' || dir === 'right';
+  const [ox, oy] = LOOK[dir];
+  const body = (px: number, py: number): boolean => {
+    if (px < 0 || py < 0 || px >= SPRITE_SIZE || py >= SPRITE_SIZE) return false;
+    const dx = Math.abs(px - 7.5);
+    const dy = Math.abs(py - 7.5);
+    return along ? dx / 7.6 + dy / 4.2 <= 1 : dx / 4.2 + dy / 7.6 <= 1;
+  };
+  return paint(SPRITE_SIZE, (px, py) => {
+    for (const [ex, ey] of along
+      ? [
+          [5, 6],
+          [9, 6],
+        ]
+      : [
+          [6, 5],
+          [6, 9],
+        ]) {
+      const x = ex as number;
+      const y = ey as number;
+      if (px === x + 1 + ox && py === y + oy) return NEON.pupil;
+      if (px >= x && px < x + 3 && py >= y - 1 && py < y + 2 && along === true)
+        return NEON.eyeWhite;
+      if (px >= x - 1 && px < x + 2 && py >= y && py < y + 3 && along === false)
+        return NEON.eyeWhite;
+    }
+    if (body(px, py)) return NEON.opponents[2];
+    const touches = body(px + 1, py) || body(px - 1, py) || body(px, py + 1) || body(px, py - 1);
+    return touches ? NEON.opponentOutline : null;
+  });
+}
