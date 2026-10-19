@@ -39,6 +39,7 @@ import {
   modeOf,
   nextMazeDue,
   powerUp,
+  setPaused,
   setWanted,
   showBonus,
   stepGame,
@@ -81,6 +82,8 @@ export interface GameSnapshot {
   /** Best score shown in the HUD. */
   highScore: number;
   phase: Phase;
+  /** Paused with P or Esc, or because the tab lost focus (M4.4). */
+  paused: boolean;
   /** scatter or chase (WW-02). */
   mode: 'scatter' | 'chase';
   dotsLeft: number;
@@ -102,6 +105,9 @@ const dashTexture = (dir: Dir): string => `dash-${dir}`;
 const lungeTexture = (dir: Dir): string => `lunge-${dir}`;
 const opponentTexture = (index: number, dir: Dir, frame: number): string =>
   `opponent-${index}-${dir}-${frame}`;
+
+/** Keys that pause and resume (M4.4). */
+const PAUSE_KEYS: ReadonlySet<string> = new Set(['KeyP', 'Escape']);
 
 const KEY_DIRS: Readonly<Record<string, Dir>> = {
   ArrowUp: 'up',
@@ -159,6 +165,7 @@ export class GameScene extends Phaser.Scene {
   private message!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
   private gameOverPanel!: Phaser.GameObjects.Container;
+  private pausePanel!: Phaser.GameObjects.Container;
   private swipeStart: Point | null = null;
   /** Unsimulated time, in seconds (fixed-step loop, WW-01). */
   private pending = 0;
@@ -262,6 +269,7 @@ export class GameScene extends Phaser.Scene {
       lives: this.state.lives,
       highScore: this.highScore,
       phase: this.state.phase,
+      paused: this.state.paused,
       mode: modeOf(this.state),
       dotsLeft: this.state.dotsLeft,
       message: this.message.visible ? this.message.text : null,
@@ -328,6 +336,11 @@ export class GameScene extends Phaser.Scene {
     kb.addCapture('UP,DOWN,LEFT,RIGHT');
     kb.on('keydown', (e: KeyboardEvent) => {
       if (this.restartIfOver()) return;
+      if (PAUSE_KEYS.has(e.code)) {
+        this.pause(!this.state.paused);
+        return;
+      }
+      if (this.state.paused) return;
       const dir = KEY_DIRS[e.code];
       if (dir) setWanted(this.state, dir);
     });
@@ -336,6 +349,11 @@ export class GameScene extends Phaser.Scene {
     // enough, and a new swipe can start without lifting the finger.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.restartIfOver()) return;
+      // A tap carries on after a pause; it doesn't steer.
+      if (this.state.paused) {
+        this.pause(false);
+        return;
+      }
       this.swipeStart = { x: p.x, y: p.y };
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -358,14 +376,28 @@ export class GameScene extends Phaser.Scene {
     // Save the high score if the player leaves mid-game.
     const onHide = (): void => this.saveHighScore();
     window.addEventListener('pagehide', onHide);
+    // Pause when the tab or window loses focus (M4.4); the player resumes it.
+    const onBlur = (): void => this.pause(true);
+    this.game.events.on(Phaser.Core.Events.BLUR, onBlur);
+    this.game.events.on(Phaser.Core.Events.HIDDEN, onBlur);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('pagehide', onHide);
+      this.game.events.off(Phaser.Core.Events.BLUR, onBlur);
+      this.game.events.off(Phaser.Core.Events.HIDDEN, onBlur);
       kb.removeAllListeners('keydown');
       this.input.removeAllListeners('pointerdown');
       this.input.removeAllListeners('pointermove');
       this.input.removeAllListeners('pointerup');
     });
+  }
+
+  /** Pauses or resumes (M4.4); ignored once the run has ended or the maze is cleared. */
+  private pause(on: boolean): void {
+    setPaused(this.state, on);
+    // No catch-up burst of steps after a long pause.
+    this.pending = 0;
+    this.showPhase();
   }
 
   /** At game over, after a short delay, any key or tap starts a new game. */
@@ -379,7 +411,7 @@ export class GameScene extends Phaser.Scene {
     const { hero, opponents, phase } = this.state;
     this.drawDashLine();
     this.placePhaseMark();
-    const chomping = phase === 'playing' && hero.moving;
+    const chomping = phase === 'playing' && hero.moving && !this.state.paused;
     const frame = chomping
       ? Math.floor((time / 1000) * HERO.chompHz) % HERO_MOUTH_FRAMES.length
       : 1;
@@ -465,13 +497,14 @@ export class GameScene extends Phaser.Scene {
 
   /** Life icons, the READY message and the game-over panel follow the phase. */
   private showPhase(): void {
-    const { phase, lives } = this.state;
+    const { phase, lives, paused } = this.state;
     // Lives in reserve: the one being played isn't shown.
     this.lifeIcons.forEach((icon, i) => icon.setVisible(i < lives - 1));
-    this.message.setVisible(phase === 'ready' || phase === 'cleared');
+    this.pausePanel.setVisible(paused);
+    this.message.setVisible(!paused && (phase === 'ready' || phase === 'cleared'));
     this.message.setText(phase === 'cleared' ? 'MAZE CLEARED!' : 'GET SET!');
     // The controls hint shows with GET SET! on the first maze only.
-    this.hint.setVisible(phase === 'ready' && this.level === 1);
+    this.hint.setVisible(!paused && phase === 'ready' && this.level === 1);
     this.gameOverPanel.setVisible(phase === 'gameover');
   }
 
@@ -501,6 +534,18 @@ export class GameScene extends Phaser.Scene {
       .text(0, 16, 'PRESS A KEY OR TAP', { ...style, color: NEON.hud })
       .setOrigin(0.5);
     this.gameOverPanel = this.add.container(GAME_WIDTH / 2, middle.y, [panel, title, seed, hint]);
+
+    // Pause (M4.4): the same panel, with how to carry on.
+    const pauseBox = this.add
+      .rectangle(0, 0, GAME_WIDTH - 4 * TILE_SIZE, 3 * TILE_SIZE, NEON.background, 0.92)
+      .setStrokeStyle(2, NEON.wallLine);
+    const paused = this.add.text(0, -8, 'PAUSED', style).setOrigin(0.5);
+    const resume = this.add
+      .text(0, 8, 'P, ESC OR TAP TO GO ON', { ...style, color: NEON.hud })
+      .setOrigin(0.5);
+    this.pausePanel = this.add
+      .container(GAME_WIDTH / 2, middle.y, [pauseBox, paused, resume])
+      .setVisible(false);
   }
 
   /** The battery and its popup (M3.3). The bars charge up in a loop; held full for reduced motion. */

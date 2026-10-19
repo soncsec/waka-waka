@@ -8,7 +8,7 @@
 | M1 First playable | Done |
 | M2 Full classic game | In progress (M2.6 owner playtest) |
 | M3 Endless and smarter | In progress (M3.1 and M3.4 wait for the M2.6 playtest) |
-| M4 Mobile and polish | Not started |
+| M4 Mobile and polish | In progress |
 | M5 Sound | Not started |
 | M6 Release | Not started |
 
@@ -70,7 +70,7 @@
 - [ ] M4.1 Optional on-screen d-pad
 - [ ] M4.2 Rotate prompt for phones held landscape, with pause; tablets play either way (WW-05)
 - [ ] M4.3 Title, help and game-over screens
-- [ ] M4.4 Pause on P or Esc and when the tab loses focus
+- [x] M4.4 Pause on P or Esc and when the tab loses focus (a tap or P/Esc carries on)
 - [ ] M4.5 Animations (chomp, opponent bob, death) and a reduced-flash option
 - [ ] M4.6 HUD readability on a real phone at zoom 1 (the font is 8 px); adjust the font size or layout if needed
 
