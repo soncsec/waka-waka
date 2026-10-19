@@ -8,6 +8,7 @@ import {
   endLunge,
   lungeCanStart,
   lungeTarget,
+  phaseCanStart,
   specialSpeed,
   tickSpecials,
   type SpecialState,
@@ -305,6 +306,7 @@ function moveOpponents(
     inTunnel: tunnel,
     hero,
     open,
+    maze,
   };
   tickSpecials(state.specials, specialCtx, dt);
 
@@ -340,6 +342,7 @@ function moveOpponents(
     }
     const special = state.specials[i];
     const speed = state.row.opponentSpeed * specialSpeed(state.row, i, special);
+    if (i === 3 && special && special.phase !== 'ready' && state.row.phase) return; // Phase moves Wisp
     if (i === 2 && special?.phase === 'active' && state.row.dash) {
       // Dash (WW-10): straight on, to the next junction or wall.
       const from = special.from;
@@ -378,6 +381,7 @@ function moveOpponents(
       const here = { ...o, ...m };
       if (i === 2) return dashCanStart(state.specials, specialCtx, here) !== null;
       if (i === 1) return lungeCanStart(state.specials, specialCtx, here) !== null;
+      if (i === 3) return phaseCanStart(state.specials, specialCtx, here) !== null;
       return false;
     };
     steer(o, Math.min(speed, cap) * dt, choose, open, maze.width, startsHere);

@@ -56,7 +56,7 @@
 ## M3 — Endless and smarter
 
 - [ ] M3.1 Fill the difficulty table rows up to the plateau around maze 20 (WW-07)
-- [ ] M3.2 Special moves: Frenzy (Murk), Dash (Bolt), Lunge (Gnash), Phase (Wisp), each with a visible tell
+- [x] M3.2 Special moves: Frenzy (Murk), Dash (Bolt), Lunge (Gnash), Phase (Wisp), each with a visible tell
 - [ ] M3.3 Bonus item, twice per maze (not fruit: something that fits Look B, per docs/ORIGINALITY.md)
 - [ ] M3.4 Balance pass from the owner's playtest notes
 
