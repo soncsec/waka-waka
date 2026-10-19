@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { OPPONENTS, ROUND, STEP_HZ } from '../../src/config/tuning';
+import { MAZE, OPPONENTS, ROUND, STEP_HZ } from '../../src/config/tuning';
 import { levelRow } from '../../src/logic/difficulty';
 import { createGame, stepGame, type GameState } from '../../src/logic/game';
-import { fallbackMaze, type Maze } from '../../src/logic/maze';
+import { buildMaze, fallbackMaze, type Maze } from '../../src/logic/maze';
 import { OPPOSITE } from '../../src/logic/movement';
 import {
   chaseTarget,
   createOpponents,
   homeCorner,
   houseExit,
+  inTunnel,
   mayLeave,
   moveInHouse,
   opponentStart,
@@ -172,5 +173,53 @@ describe('the release order in a game', () => {
     expect(states(state)[3]).not.toBe('waiting');
     run(3);
     expect(states(state)).toEqual(['out', 'out', 'out', 'out']);
+  });
+});
+
+describe('the tunnel (M2.4)', () => {
+  it('covers only the outer ends of the tunnel row', () => {
+    const y = maze.tunnelY;
+    expect(inTunnel(maze, { x: 0, y })).toBe(true);
+    expect(inTunnel(maze, { x: 2, y })).toBe(true);
+    expect(inTunnel(maze, { x: maze.width - 1, y })).toBe(true);
+    expect(inTunnel(maze, { x: -0.5, y })).toBe(true);
+    expect(inTunnel(maze, { x: Math.floor(maze.width / 2), y })).toBe(false);
+    expect(inTunnel(maze, { x: 0, y: y + 1 })).toBe(false);
+    expect(inTunnel(maze, { x: 0, y: y + 0.5 })).toBe(false);
+  });
+
+  it('every generated maze has open tunnel ends', () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const m = buildMaze(seed, 1).maze;
+      const row = m.grid[m.tunnelY] ?? '';
+      expect(row[0], `seed ${seed}`).not.toBe('#');
+      expect(row[m.width - 1], `seed ${seed}`).not.toBe('#');
+    }
+  });
+
+  it('slows an opponent inside the tunnel, but not the hero or eyes', () => {
+    const state = createGame(maze);
+    state.phase = 'playing';
+    const murk = state.opponents[0] as Opponent;
+    const step = (o: Opponent, x: number): number => {
+      Object.assign(o, { x, y: maze.tunnelY, dir: 'left' });
+      Object.assign(state.hero, { x: maze.start.x, y: maze.start.y, dir: 'left' });
+      stepGame(state, DT);
+      return Math.abs(o.x - x);
+    };
+    expect(step(murk, 2)).toBeCloseTo(row.tunnelSpeed * DT, 5);
+    murk.state = 'eyes';
+    expect(step(murk, 2)).toBeGreaterThan(row.tunnelSpeed * DT * 2);
+    murk.state = 'out';
+    // The hero runs through the tunnel at full speed.
+    Object.assign(state.hero, { x: 2, y: maze.tunnelY, dir: 'left', moving: true });
+    state.wanted = null;
+    murk.state = 'waiting';
+    stepGame(state, DT);
+    expect(2 - state.hero.x).toBeCloseTo(row.heroSpeed * DT, 5);
+    murk.state = 'out';
+    // Just outside the tunnel on the same row: full speed.
+    expect(maze.grid[maze.tunnelY]?.[1 + MAZE.pitch + 1]).not.toBe('#');
+    expect(step(murk, 1 + MAZE.pitch + 1)).toBeCloseTo(row.opponentSpeed * DT, 5);
   });
 });

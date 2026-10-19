@@ -1,4 +1,4 @@
-import { OPPONENTS, type LevelRow } from '../config/tuning';
+import { MAZE, OPPONENTS, type LevelRow } from '../config/tuning';
 import type { Maze } from './maze';
 import { DIR_VEC, OPPOSITE, type Dir, type Mover, type Point } from './movement';
 import type { Mode } from './scheduler';
@@ -60,6 +60,17 @@ export function createOpponents(maze: Maze): Opponent[] {
 export function eyesTarget(maze: Maze): Point {
   const exit = houseExit(maze);
   return { x: Math.floor(exit.x), y: exit.y };
+}
+
+/**
+ * Whether a point is inside the wrap-around tunnel: the dot-free outer ends of
+ * the tunnel row, beyond the first lattice column on each side (WW-03).
+ */
+export function inTunnel(maze: Maze, p: Point): boolean {
+  if (Math.round(p.y) !== maze.tunnelY || !Number.isInteger(p.y)) return false;
+  const x = ((p.x % maze.width) + maze.width) % maze.width;
+  const edge = 1 + MAZE.pitch;
+  return x < edge || x > maze.width - 1 - edge;
 }
 
 /** Corner each opponent heads for when it holds back (Wisp) or scatters (M2.2). */

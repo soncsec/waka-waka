@@ -19,6 +19,9 @@ describe('levelRow', () => {
       expect(row.heroSpeed).toBeGreaterThan(0);
       expect(row.opponentSpeed).toBeGreaterThan(0);
       expect(row.releaseIdleSeconds).toBeGreaterThan(0);
+      expect(row.tunnelSpeed).toBeGreaterThan(0);
+      expect(row.tunnelSpeed).toBeLessThan(row.opponentSpeed);
+      expect(row.scaredSpeed).toBeLessThan(row.opponentSpeed);
       expect(row.releaseDots).toHaveLength(4);
       expect([...row.releaseDots]).toEqual([...row.releaseDots].sort((a, b) => a - b));
     }

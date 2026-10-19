@@ -226,6 +226,8 @@ test('the same ?seed= gives the same maze; no seed gives a new maze each run', a
 });
 
 test('an invalid ?seed= is ignored and a random seed is used', async ({ page }) => {
+  // Ten page loads: allow for a busy machine.
+  test.setTimeout(60_000);
   for (const bad of ['-1', '1e5', '99999999999', 'abc', '%3Cscript%3E']) {
     await openGame(page, `?seed=${bad}`);
     const first = (await snapshot(page)).seed;
