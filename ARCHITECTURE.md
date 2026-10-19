@@ -53,9 +53,10 @@ Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the
 
 ### WW-02 Opponent AI: target tiles plus a mode scheduler
 
-- **Decision:** at each tile an opponent picks the open direction (no reversing) that brings it closest to its target tile. Each personality has its own target (Murk: the hero; Gnash: 4 tiles ahead; Bolt: twice the vector from Murk to 2 tiles ahead; Wisp: the hero when more than 8 tiles away, else its corner). A scheduler switches all four between scatter, chase and scared, and reverses them on each switch. Later mazes switch on short breadth-first look-ahead and special moves through the difficulty table.
+- **Decision:** at each tile an opponent picks the open direction (no reversing) that brings it closest to its target tile. Each personality has its own target (Murk: the hero; Gnash: 3 tiles ahead; Bolt: twice the vector from Murk to 3 tiles ahead; Wisp: the hero when more than 6 tiles away, else its corner; distances are in `tuning.ts` and were changed from the first values by the 2026-10-19 originality review). A scheduler switches all four between scatter, chase and scared, and reverses them on each switch. Later mazes switch on short breadth-first look-ahead and special moves through the difficulty table.
 - **Alternatives:** full A* pathfinding every step; behaviour trees.
 - **Why:** readable, distinct personalities and cheap to run. A* makes every opponent behave the same and feel unfair; behaviour trees are more code than four personalities need.
+- **Amendment (approved by the owner on 2026-10-19):** an eaten opponent, travelling home as a spark, takes a shortest path to the house door (breadth-first search, reversing allowed: `chooseShortest`). With the greedy no-reverse rule, the eyes circled one block for ever in some generated mazes. Chasing, scattering and scared wandering keep the rules above.
 
 ### WW-03 Mazes generated at runtime, with checks and a fallback
 
