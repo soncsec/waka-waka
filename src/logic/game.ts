@@ -1,6 +1,14 @@
 import { HERO, OPPONENTS, ROUND, SCORE, type LevelRow } from '../config/tuning';
 import { levelRow } from './difficulty';
-import { createSpecials, specialSpeed, tickSpecials, type SpecialState } from './specials';
+import {
+  createSpecials,
+  dashCanStart,
+  dashStops,
+  endDash,
+  specialSpeed,
+  tickSpecials,
+  type SpecialState,
+} from './specials';
 import { createRng, mixSeed } from './rng';
 import { createModeClock, currentMode, tickMode, type Mode, type ModeClock } from './scheduler';
 import { isWalkable, TILE, type Maze } from './maze';
@@ -286,11 +294,15 @@ function moveOpponents(
   }
   const ctx = { maze, mode: modeOf(state), hero, murk: tileOf(murk, maze.width) };
   const tunnel = (o: Opponent): boolean => inTunnel(maze, o);
-  tickSpecials(
-    state.specials,
-    { row: state.row, mode: ctx.mode, opponents: state.opponents, inTunnel: tunnel },
-    dt,
-  );
+  const specialCtx = {
+    row: state.row,
+    mode: ctx.mode,
+    opponents: state.opponents,
+    inTunnel: tunnel,
+    hero,
+    open,
+  };
+  tickSpecials(state.specials, specialCtx, dt);
 
   // Release waiting opponents one at a time, in cast order.
   const next = state.opponents.findIndex((o) => o.state === 'waiting');
@@ -322,8 +334,25 @@ function moveOpponents(
       steer(o, Math.min(state.row.scaredSpeed, cap) * dt, wander, open, maze.width);
       return;
     }
+    const special = state.specials[i];
+    const speed = state.row.opponentSpeed * specialSpeed(state.row, i, special);
+    if (i === 2 && special?.phase === 'active' && state.row.dash) {
+      // Dash (WW-10): straight on, to the next junction or wall.
+      const from = special.from;
+      const moved = (m: Mover): boolean => !from || m.x !== from.x || m.y !== from.y;
+      const stop = (m: Mover): boolean => moved(m) && dashStops(m, open);
+      steer(o, Math.min(speed, cap) * dt, (m) => m.dir, open, maze.width, stop);
+      if (Number.isInteger(o.x) && Number.isInteger(o.y) && stop(o)) {
+        endDash(special, state.row.dash.cooldown);
+      }
+      return;
+    }
     const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
-    const speed = state.row.opponentSpeed * specialSpeed(state.row, i, state.specials[i]);
-    steer(o, Math.min(speed, cap) * dt, choose, open, maze.width);
+    // Bolt halts on the tile centre where it could start a Dash; the tell begins next step.
+    const dashFrom =
+      i === 2 && state.row.dash
+        ? (m: Mover): boolean => dashCanStart(state.specials, specialCtx, { ...o, ...m }) !== null
+        : undefined;
+    steer(o, Math.min(speed, cap) * dt, choose, open, maze.width, dashFrom);
   });
 }

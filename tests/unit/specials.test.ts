@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { NEON, STEP_HZ, type LevelRow } from '../../src/config/tuning';
-import { opponentPixels } from '../../src/art/sprites';
+import { dashPixels, opponentPixels } from '../../src/art/sprites';
 import { levelRow } from '../../src/logic/difficulty';
 import { createGame, powerUp, stepGame, type GameState } from '../../src/logic/game';
 import { fallbackMaze } from '../../src/logic/maze';
 import { createOpponents, type Opponent } from '../../src/logic/opponents';
 import {
   createSpecials,
+  dashAim,
+  dashStops,
+  endDash,
   othersBusy,
   primeSpecial,
   specialSpeed,
@@ -20,7 +23,15 @@ const row = levelRow(1);
 const frenzy = row.frenzy as NonNullable<LevelRow['frenzy']>;
 
 function ctx(over: Partial<SpecialContext> = {}): SpecialContext {
-  return { row, mode: 'chase', opponents: createOpponents(maze), inTunnel: () => false, ...over };
+  return {
+    row,
+    mode: 'chase',
+    opponents: createOpponents(maze),
+    inTunnel: () => false,
+    hero: { x: 1, y: 25 },
+    open: () => true,
+    ...over,
+  };
 }
 
 /** Ticks for `seconds` of game time. */
@@ -70,11 +81,14 @@ describe('Frenzy (WW-10)', () => {
   });
 
   it('waits while another opponent is mid-move (one at a time)', () => {
+    // Bolt is mid-Dash (maze 2 has Dash on).
+    const c = ctx({ row: levelRow(2) });
+    Object.assign(c.opponents[2] as Opponent, { state: 'out', x: 5, y: 1 });
     const s = createSpecials();
-    (s[2] as { phase: string }).phase = 'tell';
+    (s[2] as { phase: string }).phase = 'active';
     expect(othersBusy(s, 0)).toBe(true);
     primeSpecial(s, 0);
-    run(s, ctx(), 1);
+    run(s, c, 1);
     expect(s[0]?.phase).toBe('ready');
   });
 
@@ -153,5 +167,165 @@ describe('Frenzy tell art', () => {
     const alpha = (d: Uint8ClampedArray): number[] => [...d].filter((_, i) => i % 4 === 3);
     expect(alpha(hot.data)).toEqual(alpha(normal.data));
     expect(hot.data).not.toEqual(normal.data);
+  });
+});
+
+describe('Dash (WW-10)', () => {
+  const row2 = levelRow(2);
+  const dash = row2.dash as NonNullable<LevelRow['dash']>;
+  // A ring corridor with one junction at (4,1): a spur goes down from it.
+  const grid = ['#########', '#.......#', '#.##.##.#', '#.......#', '#########'];
+  const open = (x: number, y: number): boolean => (grid[y]?.[x] ?? '#') !== '#';
+
+  it('is off on maze 1 and on from maze 2, with a tell of at least 0.5 s', () => {
+    expect(levelRow(1).dash).toBeNull();
+    expect(dash.tell).toBeGreaterThanOrEqual(0.5);
+    expect(dash.factor).toBeGreaterThan(1);
+  });
+
+  it('dashAim sees the hero straight down an open corridor within range', () => {
+    expect(dashAim({ x: 1, y: 1 }, { x: 6, y: 1 }, open, 8)).toBe('right');
+    expect(dashAim({ x: 1, y: 1 }, { x: 1, y: 3 }, open, 8)).toBe('down');
+    expect(dashAim({ x: 1, y: 1 }, { x: 6, y: 1 }, open, 4)).toBeNull(); // out of range
+    expect(dashAim({ x: 1, y: 1 }, { x: 6, y: 3 }, open, 8)).toBeNull(); // not in line
+    expect(dashAim({ x: 2, y: 1 }, { x: 2, y: 3 }, open, 8)).toBeNull(); // wall between
+    expect(dashAim({ x: 1.5, y: 1 }, { x: 6, y: 1 }, open, 8)).toBeNull(); // not at a centre
+  });
+
+  it('dashStops at a junction or a wall ahead', () => {
+    expect(dashStops({ x: 4, y: 1, dir: 'right' }, open)).toBe(true); // junction
+    expect(dashStops({ x: 7, y: 1, dir: 'right' }, open)).toBe(true); // wall
+    expect(dashStops({ x: 2, y: 1, dir: 'right' }, open)).toBe(false);
+  });
+
+  it('takes aim when the hero is in sight: Bolt faces it and stands still for the tell', () => {
+    const c = ctx({ row: row2, hero: { x: 6, y: 1 }, open });
+    Object.assign(c.opponents[2] as Opponent, { state: 'out', x: 1, y: 1, dir: 'up' });
+    const s = createSpecials();
+    tickSpecials(s, c, DT);
+    expect(s[2]).toMatchObject({ phase: 'tell', aim: 'right', from: { x: 1, y: 1 } });
+    expect((c.opponents[2] as Opponent).dir).toBe('right');
+    expect(specialSpeed(row2, 2, s[2])).toBe(0);
+    run(s, c, dash.tell);
+    expect(s[2]?.phase).toBe('active');
+    expect(specialSpeed(row2, 2, s[2])).toBe(dash.factor);
+  });
+
+  it('waits for its cooldown after a dash, and for Frenzy to finish', () => {
+    const c = ctx({ row: row2, hero: { x: 6, y: 1 }, open });
+    Object.assign(c.opponents[2] as Opponent, { state: 'out', x: 1, y: 1 });
+    const s = createSpecials();
+    endDash(s[2] as NonNullable<(typeof s)[2]>, dash.cooldown);
+    run(s, c, dash.cooldown - 0.5);
+    expect(s[2]?.phase).toBe('ready');
+    run(s, c, 0.6);
+    expect(s[2]?.phase).toBe('tell');
+
+    const t = createSpecials();
+    (t[0] as { phase: string }).phase = 'active';
+    Object.assign(c.opponents[0] as Opponent, { state: 'out' });
+    tickSpecials(
+      t,
+      {
+        ...c,
+        row: {
+          ...row2,
+          frenzy: { ...(row2.frenzy as NonNullable<LevelRow['frenzy']>), burst: 99 },
+        },
+      },
+      DT,
+    );
+    expect(t[2]?.phase).toBe('ready');
+  });
+
+  it('in a game, Bolt shoots straight at dash speed and stops at the junction', () => {
+    const corridorMaze = {
+      seed: 0,
+      width: 9,
+      height: 5,
+      grid,
+      start: { x: 6, y: 3 },
+      house: { x0: 0, x1: 0, y0: 4, y1: 4 },
+      tunnelY: -1,
+    };
+    const state = createGame(corridorMaze, { level: 2 });
+    state.phase = 'playing';
+    state.modeClock = { index: 1, time: 0 };
+    const bolt = state.opponents[2] as Opponent;
+    Object.assign(bolt, { state: 'out', x: 1, y: 1, dir: 'right' });
+    // Only Bolt is in play: the others stay parked in the house.
+    const step = (): void => {
+      for (const i of [0, 1, 3])
+        Object.assign(state.opponents[i] as Opponent, { state: 'waiting', x: -20 });
+      stepGame(state, DT);
+    };
+    primeSpecial(state.specials, 2);
+    step();
+    expect(state.specials[2]?.phase).toBe('tell');
+    expect(bolt.x).toBe(1);
+    for (let i = 0; i < dash.tell * STEP_HZ + 1; i++) step();
+    expect(state.specials[2]?.phase).toBe('active');
+    const x0 = bolt.x;
+    step();
+    expect(bolt.x - x0).toBeCloseTo(row2.opponentSpeed * dash.factor * DT, 5);
+    for (let i = 0; i < STEP_HZ && state.specials[2]?.phase === 'active'; i++) step();
+    expect(bolt).toMatchObject({ x: 4, y: 1 });
+    expect(state.specials[2]).toMatchObject({ phase: 'ready', cool: dash.cooldown });
+  });
+});
+
+describe('Dash in play (regression: Bolt is rarely exactly on a tile centre)', () => {
+  it('starts when Bolt, moving between centres, comes into line with the hero', () => {
+    const grid = ['#########', '#.......#', '#.##.##.#', '#.......#', '#########'];
+    const state = createGame(
+      {
+        seed: 0,
+        width: 9,
+        height: 5,
+        grid,
+        start: { x: 6, y: 3 },
+        house: { x0: 0, x1: 0, y0: 4, y1: 4 },
+        tunnelY: -1,
+      },
+      { level: 2 },
+    );
+    state.phase = 'playing';
+    state.modeClock = { index: 1, time: 0 };
+    const bolt = state.opponents[2] as Opponent;
+    Object.assign(bolt, { state: 'out', x: 1, y: 2.3, dir: 'up' });
+    Object.assign(state.hero, { x: 7, y: 1, dir: 'left', moving: false });
+    let started = false;
+    for (let i = 0; i < STEP_HZ && !started; i++) {
+      for (const j of [0, 1, 3])
+        Object.assign(state.opponents[j] as Opponent, { state: 'waiting', x: -20 });
+      state.hero.moving = false;
+      stepGame(state, DT);
+      started = state.specials[2]?.phase === 'tell';
+    }
+    expect(started).toBe(true);
+    expect(state.specials[2]).toMatchObject({ aim: 'right', from: { x: 1, y: 1 } });
+  });
+});
+
+describe('Dash tell art', () => {
+  it('stretches Bolt along the way it will shoot', () => {
+    const width = (art: ReturnType<typeof dashPixels>, horizontal: boolean): number => {
+      let lo = 99;
+      let hi = -1;
+      for (let y = 0; y < art.height; y++) {
+        for (let x = 0; x < art.width; x++) {
+          if ((art.data[(y * art.width + x) * 4 + 3] ?? 0) === 0) continue;
+          const v = horizontal ? x : y;
+          lo = Math.min(lo, v);
+          hi = Math.max(hi, v);
+        }
+      }
+      return hi - lo + 1;
+    };
+    const right = dashPixels('right');
+    expect(width(right, true)).toBeGreaterThan(width(right, false) + 4);
+    const up = dashPixels('up');
+    expect(width(up, false)).toBeGreaterThan(width(up, true) + 4);
+    expect(dashPixels('left').data).not.toEqual(right.data);
   });
 });

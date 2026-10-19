@@ -190,6 +190,37 @@ test("Murk's Frenzy: a tell, then a burst, then ready again (WW-10)", async ({ p
   expect(watched.errors).toEqual([]);
 });
 
+test("Bolt's Dash on maze 2: a tell, a dash, then ready again (WW-10)", async ({ page }) => {
+  test.setTimeout(90_000);
+  const watched = watchPage(page);
+  await openGame(page, '?seed=7');
+  await expect.poll(async () => (await snapshot(page)).phase, { timeout: 15_000 }).toBe('playing');
+  await page.evaluate(() => window.__game?.skipMaze());
+  await expect.poll(async () => (await snapshot(page)).level, { timeout: 15_000 }).toBe(2);
+  // Bolt leaves the house once the hero has eaten enough or gone idle.
+  const bolt = async () => (await snapshot(page)).opponents[2];
+  await expect.poll(async () => (await bolt())?.state, { timeout: 30_000 }).toBe('out');
+  // Record Bolt's phase every frame: a dash to a nearby junction lasts only a few frames.
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { dashSeen: string[] }).dashSeen = seen;
+    const tick = (): void => {
+      const phase = window.__game?.snapshot()?.opponents[2]?.special;
+      if (phase && seen[seen.length - 1] !== phase) seen.push(phase);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    window.__game?.primeSpecial(2);
+  });
+  const seen = (): Promise<string[]> =>
+    page.evaluate(() => (window as unknown as { dashSeen: string[] }).dashSeen);
+  await expect.poll(seen, { timeout: 15_000 }).toEqual(expect.arrayContaining(['tell', 'active']));
+  await expect.poll(async () => (await seen()).at(-1), { timeout: 10_000 }).toBe('ready');
+  const order = await seen();
+  expect(order.indexOf('tell')).toBeLessThan(order.indexOf('active'));
+  expect(watched.errors).toEqual([]);
+});
+
 test('arrow keys and WASD steer the hero', async ({ page }) => {
   await openGame(page, '?seed=7');
   // The hero starts heading left; the opposite direction is taken at once.
