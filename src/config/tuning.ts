@@ -130,6 +130,8 @@ export interface ModePhase {
   seconds: number;
 }
 
+const FRENZY: FrenzyRow = { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 };
+
 const MAZE_1: LevelRow = {
   heroSpeed: 7.5,
   opponentSpeed: 7.0,
@@ -148,7 +150,7 @@ const MAZE_1: LevelRow = {
   scaredSeconds: 6,
   scaredSpeed: 4.5,
   tunnelSpeed: 3.5,
-  frenzy: { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor: 1.3 },
+  frenzy: FRENZY,
   dash: null,
   lunge: null,
   phase: null,
@@ -156,11 +158,88 @@ const MAZE_1: LevelRow = {
 };
 
 const DASH: DashRow = { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 };
+const LUNGE: LungeRow = {
+  minRange: 2,
+  maxRange: 3,
+  tell: 0.5,
+  jump: 2,
+  factor: 3,
+  recover: 0.5,
+  cooldown: 8,
+};
+const PHASE: PhaseRow = { wall: 2, range: 4, tell: 1, cross: 0.8, cooldown: 12 };
 
-const MAZE_3: LevelRow = {
-  ...MAZE_1,
-  dash: DASH,
-  lunge: { minRange: 2, maxRange: 3, tell: 0.5, jump: 2, factor: 3, recover: 0.5, cooldown: 8 },
+const MAZE_3: LevelRow = { ...MAZE_1, dash: DASH, lunge: LUNGE };
+const MAZE_5: LevelRow = { ...MAZE_3, phase: PHASE, bonusPoints: 1500 };
+
+/*
+ * Mazes 6 to 20 (M3.1) ramp up in four bands to the plateau at maze 20, which
+ * then repeats. Each band: opponents a little faster, shorter cooldowns between
+ * special moves, an earlier house release and shorter scatter breaks. Inside a
+ * band the scare shrinks; the battery is worth 500 more each maze. Tells never drop below
+ * the 0.5 s fairness floor (WW-10).
+ */
+const BAND_6: LevelRow = {
+  ...MAZE_5,
+  opponentSpeed: 7.2,
+  releaseDots: [0, 0, 15, 40],
+  releaseIdleSeconds: 3,
+  modes: [
+    { mode: 'scatter', seconds: 5 },
+    { mode: 'chase', seconds: 24 },
+    { mode: 'scatter', seconds: 5 },
+    { mode: 'chase', seconds: 24 },
+    { mode: 'scatter', seconds: 3 },
+    { mode: 'chase', seconds: 40 },
+    { mode: 'scatter', seconds: 2 },
+    { mode: 'chase', seconds: Infinity },
+  ],
+  frenzy: { ...FRENZY, every: 18 },
+  dash: { ...DASH, cooldown: 9 },
+  lunge: { ...LUNGE, cooldown: 7 },
+  phase: { ...PHASE, cooldown: 11 },
+};
+
+const BAND_9: LevelRow = {
+  ...BAND_6,
+  heroSpeed: 7.8,
+  opponentSpeed: 7.4,
+  tunnelSpeed: 4,
+  frenzy: { ...FRENZY, every: 16 },
+  dash: { ...DASH, cooldown: 8 },
+  lunge: { ...LUNGE, cooldown: 6 },
+  phase: { ...PHASE, cooldown: 10 },
+};
+
+const BAND_13: LevelRow = {
+  ...BAND_9,
+  heroSpeed: 8,
+  opponentSpeed: 7.6,
+  tunnelSpeed: 4.5,
+  releaseDots: [0, 0, 0, 20],
+  modes: [
+    { mode: 'scatter', seconds: 4 },
+    { mode: 'chase', seconds: 26 },
+    { mode: 'scatter', seconds: 4 },
+    { mode: 'chase', seconds: 26 },
+    { mode: 'scatter', seconds: 2 },
+    { mode: 'chase', seconds: 60 },
+    { mode: 'scatter', seconds: 1 },
+    { mode: 'chase', seconds: Infinity },
+  ],
+  frenzy: { ...FRENZY, every: 14, tell: 0.8 },
+  dash: { ...DASH, tell: 0.5, cooldown: 7 },
+  lunge: { ...LUNGE, cooldown: 6 },
+  phase: { ...PHASE, tell: 0.8, cooldown: 9 },
+};
+
+const BAND_17: LevelRow = {
+  ...BAND_13,
+  opponentSpeed: 7.8,
+  frenzy: { ...FRENZY, every: 12, tell: 0.8 },
+  dash: { ...DASH, tell: 0.5, cooldown: 6 },
+  lunge: { ...LUNGE, cooldown: 5 },
+  phase: { ...PHASE, tell: 0.8, cooldown: 8 },
 };
 
 export const LEVELS: readonly LevelRow[] = [
@@ -171,11 +250,23 @@ export const LEVELS: readonly LevelRow[] = [
   { ...MAZE_3, bonusPoints: 750 },
   { ...MAZE_3, bonusPoints: 1000 },
   // Maze 5: Wisp's Phase switches on.
-  {
-    ...MAZE_3,
-    phase: { wall: 2, range: 4, tell: 1, cross: 0.8, cooldown: 12 },
-    bonusPoints: 1500,
-  },
+  MAZE_5,
+  { ...BAND_6, scaredSeconds: 5, bonusPoints: 2000 },
+  { ...BAND_6, scaredSeconds: 4, bonusPoints: 2500 },
+  { ...BAND_6, scaredSeconds: 4, bonusPoints: 3000 },
+  { ...BAND_9, scaredSeconds: 3, bonusPoints: 3500 },
+  { ...BAND_9, scaredSeconds: 3, bonusPoints: 4000 },
+  { ...BAND_9, scaredSeconds: 2, bonusPoints: 4500 },
+  { ...BAND_9, scaredSeconds: 2, bonusPoints: 5000 },
+  { ...BAND_13, scaredSeconds: 1.5, bonusPoints: 5500 },
+  { ...BAND_13, scaredSeconds: 1.5, bonusPoints: 6000 },
+  { ...BAND_13, scaredSeconds: 1, bonusPoints: 6500 },
+  { ...BAND_13, scaredSeconds: 1, bonusPoints: 7000 },
+  { ...BAND_17, scaredSeconds: 1, bonusPoints: 7500 },
+  { ...BAND_17, scaredSeconds: 1, bonusPoints: 8000 },
+  // Mazes 19 and 20: a pellet only turns the opponents around.
+  { ...BAND_17, scaredSeconds: 0, bonusPoints: 9000 },
+  { ...BAND_17, scaredSeconds: 0, bonusPoints: 10000 },
 ];
 
 /** Round rules. Times are in seconds. */

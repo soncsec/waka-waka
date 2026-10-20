@@ -56,6 +56,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-19 | Bonus item (M3.3): a neon battery cell, chosen by the owner; it appears twice per maze on the hero's start spot and is worth more on later mazes |
 | 2026-10-19 | Screens (M4.3): the title shows the logo, best score and the cast with their moves, taking turns with a how-to-play page like an arcade attract mode; any key or tap plays. After game over any key or tap plays again at once (NEW BEST! when earned) and Esc goes to the title |
 | 2026-10-19 | Reduced flash (M4.5): follows the device's "reduce motion" setting until the player switches it on the title screen (F or a tap); the choice is saved, so localStorage now holds the high score and this one setting. The hero fizzles into sparks when caught |
+| 2026-10-20 | The owner signed off the playtest (M2.6), the balance pass (M3.4) and M4 with no changes; the difficulty table is filled to the plateau at maze 20 (M3.1) |
 
 ## 5. Open questions
 
