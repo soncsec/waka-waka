@@ -71,7 +71,7 @@
 - [x] M4.2 Rotate prompt for phones held landscape, with pause; tablets play either way (WW-05)
 - [x] M4.3 Title, help and game-over screens
 - [x] M4.4 Pause on P or Esc and when the tab loses focus (a tap or P/Esc carries on)
-- [ ] M4.5 Animations (chomp, opponent bob, death) and a reduced-flash option
+- [x] M4.5 Animations (chomp, opponent bob, death) and a reduced-flash option
 - [ ] M4.6 HUD readability on a real phone at zoom 1 (the font is 8 px); adjust the font size or layout if needed
 
 **Acceptance criteria:**

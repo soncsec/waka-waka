@@ -33,11 +33,14 @@ src/
 │   ├── difficulty     the difficulty row for a maze number (WW-07)
 │   ├── joystick       the joystick's direction and knob position (WW-06)
 │   ├── title          the title screen's page cycle and the NEW BEST! rule (M4.3)
+│   ├── death          the hero's fizzle when caught (M4.5)
+│   ├── reducedFlash   parse, format and resolve the reduced-flash setting (M4.5, WW-08)
 │   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
 ├── scenes/            Phaser scenes (Title, then Game): thin, call into logic/
 │   ├── textures.ts    sprite textures shared by both scenes
-│   └── highScoreStore.ts  the high score in localStorage (WW-08)
+│   ├── highScoreStore.ts  the high score in localStorage (WW-08)
+│   └── reducedFlashStore.ts  the reduced-flash setting in localStorage (WW-08)
 ├── ui/joystick.ts     the floating touch joystick, plain DOM around the canvas (WW-06)
 ├── ui/rotatePrompt.ts "turn your phone upright" notice for phones held landscape (WW-05)
 └── debug/testHook.ts  window.__game for Playwright (e2e build only)
@@ -101,6 +104,7 @@ Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the
 - **Decision:** static files only: no server code, network calls, cookies or accounts. Only two inputs are read. `?seed=` must be a decimal integer from 0 to 2³²−1 (at most 10 digits), otherwise it is ignored. The localStorage high score must parse as a non-negative safe integer, otherwise it is reset. Nothing from the URL or storage is ever put into HTML. No new dependencies. All shared gates (CodeQL, ESLint, gitleaks, `npm audit` failing on high or critical, production-CSP e2e test, ZAP baseline) stay on.
 - **Alternatives:** none considered; this is the shared baseline applied to this game's inputs.
 - **Why:** the owner's top priority is that nothing shipped can be exploited.
+- **Amendment (2026-10-19, owner-approved):** a third input, the reduced-flash setting (M4.5), is stored under `waka-waka.reducedFlash`. Only exactly `"1"` or `"0"` is accepted; anything else is removed and the device's "reduce motion" setting applies. Like the high score, it is never put into HTML.
 
 ### WW-09 Audio later
 

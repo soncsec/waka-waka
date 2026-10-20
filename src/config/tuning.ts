@@ -278,6 +278,36 @@ export const TITLE = {
   /** Rows of the cast page, then of the help page's points list, in pixels apart. */
   rowGap: 48,
   helpRowGap: 32,
+  /** Space around the reduced-flash button's text (M4.5), so it is easier to tap. */
+  buttonPadding: 6,
+} as const;
+
+/**
+ * The reduced-flash setting (M4.5, WW-08): it follows the device's "reduce
+ * motion" setting until the player changes it on the title screen; then the
+ * choice is stored as "1" or "0".
+ */
+export const REDUCED_FLASH = {
+  storageKey: 'waka-waka.reducedFlash',
+} as const;
+
+/**
+ * The hero fizzles out when caught (M4.5): a short hold, then it shrinks in
+ * steps while sparks crackle over it, then it bursts into a spark. The three
+ * parts add up to ROUND.deathSeconds.
+ */
+export const DEATH_ART = {
+  holdSeconds: 0.2,
+  shrinkSeconds: 0.8,
+  /** The hero's size at each step of the shrink, as a share of full size. */
+  shrinkSteps: [1, 0.75, 0.5, 0.25],
+  /** Crackle frames per second over the shrinking hero (off with reduced flash). */
+  crackleHz: 10,
+  /** The crackle's size, as a multiple of a tile: its rays reach past the hero. */
+  crackleScale: 1.5,
+  burstSeconds: 0.5,
+  /** How big the final spark grows, as a multiple of a tile. */
+  burstScale: 3,
 } as const;
 
 /** Touch controls (WW-06). */

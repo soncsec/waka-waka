@@ -3,6 +3,7 @@ import { BATTERY_FRAMES, HERO_MOUTH_FRAMES, SPARK_FRAMES } from '../art/sprites'
 import { drawWalls } from '../art/walls';
 import {
   BONUS_ART,
+  DEATH_ART,
   GAME_HEIGHT,
   GAME_WIDTH,
   HERO,
@@ -21,6 +22,7 @@ import {
   TILE_SIZE,
 } from '../config/tuning';
 import {
+  catchHero,
   clearMaze,
   createGame,
   endRun,
@@ -37,6 +39,7 @@ import {
   type GameState,
   type Phase,
 } from '../logic/game';
+import { deathLook, type DeathLook } from '../logic/death';
 import { buildMaze, TILE } from '../logic/maze';
 import { DIR_VEC, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
@@ -47,6 +50,7 @@ import { isNewBest } from '../logic/title';
 import { createJoystick } from '../ui/joystick';
 import { createRotatePrompt } from '../ui/rotatePrompt';
 import { loadHighScore, storeHighScore } from './highScoreStore';
+import { loadReducedFlash } from './reducedFlashStore';
 import {
   addPixelTexture,
   batteryTexture,
@@ -90,6 +94,10 @@ export interface GameSnapshot {
   phase: Phase;
   /** Paused with P or Esc, or because the tab lost focus (M4.4). */
   paused: boolean;
+  /** Flashing is reduced (M4.5): steady pellets, battery and scare warning; no crackle when caught. */
+  reducedFlash: boolean;
+  /** The caught hero's fizzle while dying (M4.5), else null. */
+  death: DeathLook | null;
   /** scatter or chase (WW-02). */
   mode: 'scatter' | 'chase';
   dotsLeft: number;
@@ -154,6 +162,9 @@ export class GameScene extends Phaser.Scene {
   /** Time (ms, scene clock) the popup hides; 0 when hidden. */
   private popupUntil = 0;
   private hero!: Phaser.GameObjects.Image;
+  /** The fizzle when caught (M4.5): sparks crackling over the hero, then one spark bursting. */
+  private crackle!: Phaser.GameObjects.Image;
+  private burst!: Phaser.GameObjects.Image;
   private opponents: Phaser.GameObjects.Image[] = [];
   private scoreText!: Phaser.GameObjects.Text;
   private hiText!: Phaser.GameObjects.Text;
@@ -171,7 +182,8 @@ export class GameScene extends Phaser.Scene {
   private swipeStart: Point | null = null;
   /** Unsimulated time, in seconds (fixed-step loop, WW-01). */
   private pending = 0;
-  private readonly steadyPellets = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /** Read once per maze; it can only change on the title screen. */
+  private reducedFlash = false;
 
   constructor() {
     super('Game');
@@ -192,6 +204,7 @@ export class GameScene extends Phaser.Scene {
     this.swipeStart = null;
     this.pending = 0;
     this.popupUntil = 0;
+    this.reducedFlash = loadReducedFlash();
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
     this.state = createGame(built.maze, { level: this.level, carry: this.carry });
@@ -211,7 +224,13 @@ export class GameScene extends Phaser.Scene {
       .image(0, 0, opponentTexture(3, 'down', 0))
       .setAlpha(PHASE_ART.markAlpha)
       .setVisible(false);
+    // The crackle sits behind the hero, so its rays show around the shrinking hero.
+    this.crackle = this.add
+      .image(0, 0, sparkTexture(0))
+      .setScale(DEATH_ART.crackleScale)
+      .setVisible(false);
     this.hero = this.add.image(0, 0, heroTexture(this.state.hero.dir, 1));
+    this.burst = this.add.image(0, 0, sparkTexture(0)).setVisible(false);
     this.drawMessages();
     this.placeActors(0);
     this.setUpInput();
@@ -245,7 +264,7 @@ export class GameScene extends Phaser.Scene {
     this.placeActors(time);
     this.showPhase();
     const lit =
-      this.steadyPellets || Math.floor((time / 1000) * PICKUP_ART.pelletBlinkHz * 2) % 2 === 0;
+      this.reducedFlash || Math.floor((time / 1000) * PICKUP_ART.pelletBlinkHz * 2) % 2 === 0;
     for (const p of this.pellets.values()) p.setVisible(lit);
     this.placeBonus(time);
   }
@@ -277,6 +296,8 @@ export class GameScene extends Phaser.Scene {
       newBest: this.newBest(),
       phase: this.state.phase,
       paused: this.state.paused,
+      reducedFlash: this.reducedFlash,
+      death: this.deathLook(),
       mode: modeOf(this.state),
       dotsLeft: this.state.dotsLeft,
       message: this.message.visible ? this.message.text : null,
@@ -308,6 +329,11 @@ export class GameScene extends Phaser.Scene {
   /** Test hook: makes an opponent's special move due (WW-10). */
   primeSpecial(index: number): void {
     primeSpecial(this.state.specials, index);
+  }
+
+  /** Test hook: the hero is caught now (during play). */
+  catchHero(): void {
+    catchHero(this.state);
   }
 
   /** Test hook: ends the run now, as losing the last life would. */
@@ -444,8 +470,7 @@ export class GameScene extends Phaser.Scene {
       : 1;
     const h = toScreen(hero);
     this.hero.setPosition(h.x, h.y).setTexture(heroTexture(hero.dir, frame));
-    // Caught: the hero flickers until the next life.
-    this.hero.setVisible(phase !== 'dying' || Math.floor(time / 100) % 2 === 0);
+    this.placeDeath(h);
 
     const seconds = time / 1000;
     const bob = Math.floor(seconds * OPPONENT_ART.bobHz) % 2;
@@ -488,8 +513,31 @@ export class GameScene extends Phaser.Scene {
     }
     if (!o.scared) return opponentTexture(i, o.dir, frame);
     const ending = this.state.scaredTime < SCARED_ART.flashSeconds;
-    const flash = ending && Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0;
+    // With reduced flash the warning look holds steady instead of flashing.
+    const flash =
+      ending && (this.reducedFlash || Math.floor(seconds * SCARED_ART.flashHz * 2) % 2 === 0);
     return scaredTexture(i, flash ? 'flash' : 'scared', frame);
+  }
+
+  private deathLook(): DeathLook | null {
+    if (this.state.phase !== 'dying') return null;
+    return deathLook(this.state.phaseTime, this.reducedFlash, SPARK_FRAMES);
+  }
+
+  /** Caught (M4.5): the hero shrinks with sparks crackling over it, then bursts into a spark. */
+  private placeDeath(h: Point): void {
+    const look = this.deathLook();
+    // The hero is gone once the run has ended.
+    const scale = this.state.phase === 'gameover' ? 0 : (look?.heroScale ?? 1);
+    this.hero.setScale(scale).setVisible(scale > 0);
+    const crackle = look?.crackle ?? null;
+    this.crackle.setVisible(crackle !== null).setPosition(h.x, h.y);
+    if (crackle !== null) this.crackle.setTexture(sparkTexture(crackle));
+    const burst = look?.burst ?? null;
+    this.burst.setVisible(burst !== null && burst < 1).setPosition(h.x, h.y);
+    if (burst !== null) {
+      this.burst.setScale(1 + (DEATH_ART.burstScale - 1) * burst).setAlpha(1 - burst);
+    }
   }
 
   /** Phase tell (WW-10): a faint Wisp on the far side of the wall, where it will come out. */
@@ -601,7 +649,7 @@ export class GameScene extends Phaser.Scene {
 
   private placeBonus(time: number): void {
     const showing = this.state.bonusTime > 0 && this.state.phase === 'playing';
-    const frame = this.steadyPellets
+    const frame = this.reducedFlash
       ? BATTERY_FRAMES - 1
       : Math.floor((time / 1000) * BONUS_ART.chargeHz) % BATTERY_FRAMES;
     this.bonus.setVisible(showing).setTexture(batteryTexture(frame));
