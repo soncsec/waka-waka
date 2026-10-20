@@ -8,8 +8,8 @@
 | M1 First playable | Done |
 | M2 Full classic game | In progress (M2.6 owner playtest) |
 | M3 Endless and smarter | In progress (M3.1 and M3.4 wait for the M2.6 playtest) |
-| M4 Mobile and polish | In progress |
-| M5 Sound | Not started |
+| M4 Mobile and polish | Tasks done (acceptance: the owner's full run on desktop, phone and tablet) |
+| M5 Sound | In progress (M5.1 sound picks with the owner) |
 | M6 Release | Not started |
 
 ## M0 — Setup
@@ -72,7 +72,7 @@
 - [x] M4.3 Title, help and game-over screens
 - [x] M4.4 Pause on P or Esc and when the tab loses focus (a tap or P/Esc carries on)
 - [x] M4.5 Animations (chomp, opponent bob, death) and a reduced-flash option
-- [ ] M4.6 HUD readability on a real phone at zoom 1 (the font is 8 px); adjust the font size or layout if needed
+- [x] M4.6 HUD readability on a real phone at zoom 1 (the font is 8 px); adjust the font size or layout if needed (owner checked on their phone 2026-10-20: the HUD reads fine and the zoom stays as it is; no change needed)
 
 **Acceptance criteria:**
 - The owner plays a full run on desktop, a phone and a tablet without help.
