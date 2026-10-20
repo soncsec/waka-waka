@@ -10,6 +10,7 @@ import {
   scaredPixels,
   SPARK_FRAMES,
   sparkPixels,
+  speakerPixels,
   type OpponentLook,
 } from '../art/sprites';
 import type { Pixels } from '../art/walls';
@@ -24,6 +25,7 @@ export const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${f
 export const scaredTexture = (index: number, look: OpponentLook, frame: number): string =>
   `scared-${index}-${look}-${frame}`;
 export const sparkTexture = (frame: number): string => `spark-${frame}`;
+export const speakerTexture = (muted: boolean): string => (muted ? 'speaker-muted' : 'speaker');
 export const frenzyTexture = (dir: Dir, frame: number): string => `frenzy-${dir}-${frame}`;
 export const dashTexture = (dir: Dir): string => `dash-${dir}`;
 export const lungeTexture = (dir: Dir): string => `lunge-${dir}`;
@@ -73,6 +75,9 @@ export function makeTextures(scene: Phaser.Scene): void {
         );
       }
     }
+  }
+  for (const muted of [false, true]) {
+    addPixelTexture(scene, speakerTexture(muted), () => speakerPixels(muted));
   }
   makeRectTextures(scene);
 }

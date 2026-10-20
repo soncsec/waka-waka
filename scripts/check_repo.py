@@ -2,7 +2,9 @@
 """Repo hygiene checks run in CI.
 
 - The source art pack (legacy/) and OS junk files are never committed.
-- Every image in public/assets/ is a real PNG and is listed in CREDITS.md.
+- Every image in public/assets/ is a real PNG, every sound in public/assets/audio/ a real
+  Ogg or M4A file, and each is listed in CREDITS.md.
+- Audio stays small: 1 MB at most (the M5 sounds are about 0.2 MB).
 - Every asset listed in CREDITS.md exists.
 - No committed file is larger than 5 MB.
 - No private network addresses (server or dev machine) in tracked text files;
@@ -16,11 +18,19 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 MAX_BYTES = 5 * 1024 * 1024
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+AUDIO_BUDGET = 1000 * 1000
 FORBIDDEN = re.compile(r"(^|/)(legacy(/|$)|__MACOSX/|\.DS_Store$)")
 PRIVATE_IP = re.compile(
     r"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b"
 )
 TEXT_SUFFIXES = {".md", ".ts", ".js", ".json", ".yml", ".yaml", ".py", ".sh", ".html", ".css", ".txt", ".example", ".conf", ""}
+
+
+def real_audio(path: pathlib.Path) -> bool:
+    head = path.read_bytes()[:12]
+    if path.suffix == ".ogg":
+        return head[:4] == b"OggS"
+    return head[4:8] == b"ftyp"  # .m4a: an MP4 container
 
 
 def main() -> int:
@@ -44,7 +54,7 @@ def main() -> int:
     credits = credits_file.read_text() if credits_file.exists() else ""
     if not credits:
         errors.append("CREDITS.md is missing or empty")
-    credited = set(re.findall(r"`(assets/[^`]+\.png)`", credits))
+    credited = set(re.findall(r"`(assets/[^`]+\.(?:png|ogg|m4a))`", credits))
 
     assets_dir = ROOT / "public" / "assets"
     on_disk = set()
@@ -53,12 +63,21 @@ def main() -> int:
             continue
         rel = str(png.relative_to(ROOT / "public"))
         on_disk.add(rel)
-        if png.suffix != ".png":
-            errors.append(f"unexpected non-PNG asset: {rel}")
+        if rel.startswith("assets/audio/") and png.suffix in (".ogg", ".m4a"):
+            if not real_audio(png):
+                errors.append(f"not a valid {png.suffix} file: {rel}")
+        elif png.suffix != ".png":
+            errors.append(f"unexpected asset type: {rel}")
         elif png.read_bytes()[:8] != PNG_SIGNATURE:
             errors.append(f"not a valid PNG: {rel}")
         if rel not in credited:
             errors.append(f"asset not listed in CREDITS.md: {rel}")
+
+    audio_bytes = sum(
+        (ROOT / "public" / rel).stat().st_size for rel in on_disk if rel.startswith("assets/audio/")
+    )
+    if audio_bytes > AUDIO_BUDGET:
+        errors.append(f"audio is {audio_bytes / 1e6:.2f} MB, over the {AUDIO_BUDGET / 1e6:.0f} MB budget")
 
     for rel in sorted(credited - on_disk):
         errors.append(f"CREDITS.md lists a missing asset: {rel}")

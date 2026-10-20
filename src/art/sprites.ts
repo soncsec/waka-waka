@@ -267,3 +267,33 @@ export function batteryPixels(bars: number): Pixels {
     return null;
   });
 }
+
+/** The HUD speaker (M5.2), 11 x 8 pixels in the middle of a sprite: sound waves, or an X when muted. */
+const SPEAKER_ON = [
+  '....#......',
+  '...##....#.',
+  '####.#.#..#',
+  '#..#.#..#.#',
+  '#..#.#..#.#',
+  '####.#.#..#',
+  '...##....#.',
+  '....#......',
+];
+const SPEAKER_MUTED = [
+  '....#......',
+  '...##......',
+  '####.#.#..#',
+  '#..#.#..##.',
+  '#..#.#..##.',
+  '####.#.#..#',
+  '...##......',
+  '....#......',
+];
+
+export function speakerPixels(muted: boolean): Pixels {
+  const rows = muted ? SPEAKER_MUTED : SPEAKER_ON;
+  const colour = muted ? NEON.speakerMuted : NEON.speaker;
+  const left = Math.floor((SPRITE_SIZE - (rows[0]?.length ?? 0)) / 2);
+  const top = Math.floor((SPRITE_SIZE - rows.length) / 2);
+  return paint(SPRITE_SIZE, (px, py) => (rows[py - top]?.[px - left] === '#' ? colour : null));
+}

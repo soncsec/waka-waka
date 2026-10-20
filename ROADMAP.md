@@ -9,7 +9,7 @@
 | M2 Full classic game | Done |
 | M3 Endless and smarter | Done |
 | M4 Mobile and polish | Done (signed off by the owner, 2026-10-20) |
-| M5 Sound | In progress (M5.1 sound picks with the owner) |
+| M5 Sound | Done |
 | M6 Release | Not started |
 
 ## M0 — Setup
@@ -80,8 +80,8 @@
 
 ## M5 — Sound
 
-- [ ] M5.1 Propose CC0 sound effects with sources and licences; the owner approves them (no two-tone "waka" chomp, no rising siren, no copied jingles, per docs/ORIGINALITY.md)
-- [ ] M5.2 Add the approved sounds, credit them in `CREDITS.md`, add a mute toggle (WW-09)
+- [x] M5.1 Propose CC0 sound effects with sources and licences; the owner approves them (no two-tone "waka" chomp, no rising siren, no copied jingles, per docs/ORIGINALITY.md) (owner chose 12 sounds from a listening page, 2026-10-20)
+- [x] M5.2 Add the approved sounds, credit them in `CREDITS.md`, add a mute toggle (WW-09; M, a title button and a HUD speaker; remembered, by the owner's choice)
 
 **Acceptance criteria:**
 - Only owner-approved sounds ship, all listed in `CREDITS.md`.

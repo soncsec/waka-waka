@@ -343,7 +343,7 @@ export const BONUS_ART = {
   popupSeconds: 1.5,
 } as const;
 
-/** High score (WW-08): the only thing kept in localStorage. */
+/** High score (WW-08), kept in localStorage with the reduced-flash and mute settings. */
 export const HIGH_SCORE = {
   storageKey: 'waka-waka.highScore',
   /** Longest stored value accepted, in digits (Number.MAX_SAFE_INTEGER has 16). */
@@ -366,6 +366,10 @@ export const TITLE = {
   inputDelay: 0.3,
   /** The WAKA-WAKA logo: Press Start 2P at 3 times its native size. */
   logoSize: 24,
+  /** Rows of the bottom lines, in tiles above the bottom edge: the prompt, then the two setting buttons. */
+  promptRow: 4.25,
+  flashRow: 2.5,
+  soundRow: 1,
   /** Rows of the cast page, then of the help page's points list, in pixels apart. */
   rowGap: 48,
   helpRowGap: 32,
@@ -465,6 +469,9 @@ export const NEON = {
   gameOver: '#ffb340',
   hud: '#2ef2c8',
   hudDim: '#7a6fb8',
+  /** The HUD's speaker (M5.2): the HUD colours, with sound on and muted. */
+  speaker: 0x2ef2c8,
+  speakerMuted: 0x7a6fb8,
 } as const;
 
 /**
@@ -488,6 +495,15 @@ export const PICKUP_ART = {
   pelletSize: 10,
   /** Blinks per second; held steady when the player prefers reduced motion. */
   pelletBlinkHz: 2,
+} as const;
+
+/**
+ * The tap target round the HUD speaker (M5.2), in pixels: this far either side of
+ * it, from the bottom edge up through the HUD row and the maze's bottom wall.
+ */
+export const SPEAKER_HIT = {
+  halfWidth: 24,
+  height: 32,
 } as const;
 
 /** HUD text: Press Start 2P drawn at 8 px, its native size. */
