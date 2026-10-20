@@ -82,6 +82,7 @@ preflight() {
     die "HEAD is not origin/main; check out and pull main first"
   local sha
   sha="$(git rev-parse HEAD)"
+  RELEASE_SHA="$sha"
   echo "commit $sha"
 
   # Static checks (CodeQL, gitleaks, audit, tests) and the dynamic ZAP scan of
@@ -106,6 +107,11 @@ build() {
   npm audit --audit-level=high
   npm run check
   if grep -rq __game dist; then die "test hook found in dist/"; fi
+  # dist/ must be built from the commit preflight checked. If anything moved
+  # HEAD or edited files during the build, the upload and its label would not
+  # match what CI passed.
+  [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" && -z "$(git status --porcelain)" ]] ||
+    die "the checkout changed during the build (expected $RELEASE_SHA, clean); nothing uploaded, run the release again"
 }
 
 cmd_deploy() {
@@ -116,8 +122,8 @@ cmd_deploy() {
   build
 
   local id
-  id="$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short=8 HEAD)"
-  printf '{"id":"%s","commit":"%s"}\n' "$id" "$(git rev-parse HEAD)" >dist/release.json
+  id="$(date -u +%Y%m%dT%H%M%SZ)-${RELEASE_SHA:0:8}"
+  printf '{"id":"%s","commit":"%s"}\n' "$id" "$RELEASE_SHA" >dist/release.json
   echo "release id: $id"
 
   if $dry_run; then
