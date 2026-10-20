@@ -139,17 +139,41 @@ export function steer(
  * the open direction, other than reversing, that ends nearest the target
  * (straight-line distance). Ties go up, left, down, right. It reverses only
  * when nothing else is open.
+ *
+ * With `lookAhead` above 0 (M7.1, WW-07), each first step is judged by where
+ * the opponent can be `lookAhead` tiles after it, never reversing: the nearest
+ * such tile to the target. A way that dead-ends sooner counts only if it reaches
+ * the target, so the opponent steers round walls and stays out of dead ends
+ * instead of only taking the tile that is nearest now. A tie on that falls back
+ * to the nearest first tile, then to the order above.
  */
-export function chooseToward(m: Mover, target: Point, open: OpenFn): Dir {
+export function chooseToward(m: Mover, target: Point, open: OpenFn, lookAhead = 0): Dir {
+  const dist2 = (x: number, y: number): number => (x - target.x) ** 2 + (y - target.y) ** 2;
+  /** The nearest the target that a path from (x, y), heading `dir`, ends after `steps` more tiles. */
+  const ahead = (x: number, y: number, dir: Dir, steps: number): number => {
+    const here = dist2(x, y);
+    if (steps === 0 || here === 0) return here;
+    let best = Infinity;
+    for (const next of DIRS) {
+      if (next === OPPOSITE[dir]) continue;
+      const [dx, dy] = DIR_VEC[next];
+      if (!open(x + dx, y + dy)) continue;
+      best = Math.min(best, ahead(x + dx, y + dy, next, steps - 1));
+    }
+    return best;
+  };
   let best: Dir | null = null;
-  let bestDist = Infinity;
+  let bestScore = Infinity;
+  let bestFirst = Infinity;
   for (const dir of DIRS) {
     if (dir === OPPOSITE[m.dir]) continue;
     const [dx, dy] = DIR_VEC[dir];
     if (!open(m.x + dx, m.y + dy)) continue;
-    const d = (m.x + dx - target.x) ** 2 + (m.y + dy - target.y) ** 2;
-    if (d < bestDist) {
-      bestDist = d;
+    const first = dist2(m.x + dx, m.y + dy);
+    const score = ahead(m.x + dx, m.y + dy, dir, lookAhead);
+    if (score < bestScore || (score === bestScore && first < bestFirst)) {
+      bestScore = score;
+      bestFirst = first;
       best = dir;
     }
   }

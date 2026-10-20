@@ -100,13 +100,13 @@ export interface TargetContext {
 }
 
 /**
- * Each opponent's chase target (WW-02):
+ * Each opponent's chase target (WW-02; the distances are in OPPONENTS in tuning.ts):
  * - Murk: the hero's tile.
- * - Gnash: 4 tiles ahead of the hero, to cut it off.
- * - Bolt: the point 2 tiles ahead of the hero, doubled away from Murk, so the
- *   two close in from opposite sides.
- * - Wisp: the hero while more than 8 tiles away; closer than that it drifts
- *   back to its corner.
+ * - Gnash: `gnashAhead` tiles ahead of the hero, to cut it off.
+ * - Bolt: the point `boltAhead` tiles ahead of the hero, doubled away from Murk,
+ *   so the two close in from opposite sides.
+ * - Wisp: the hero while more than `wispShyDistance` tiles away; closer than that
+ *   it drifts back to its corner.
  */
 export function chaseTarget(name: OpponentName, self: Point, ctx: TargetContext): Point {
   if (ctx.mode === 'scatter') return homeCorner(ctx.maze, name);
