@@ -21,6 +21,7 @@ PROJECT.md requires original names, shapes, colours and mazes, and nothing that 
 | 11 | Mazes | One fixed 28×31 layout, blue double-line walls | Generated every run, 24×27, neon pink walls; fallback maze is our own | Low | Keep. The shared genre parts (central house with door, side tunnel, four corner pellets) are common to the genre. |
 | 12 | Sound (M5) | "Waka" chomp, siren, death jingle | None yet | — | Rule for M5: no chomp sound that alternates two tones like "waka", no rising siren, no copied jingle. |
 | 13 | Bonus item (M3.3) | Fruit (cherry, strawberry, …) with rising values | A neon battery cell with charging bars, the same item on every maze; 250 / 500 / 750 / 1000 / 1500 points, appearing at 30% and 70% of the dots for 9 seconds | None | Built in M3.3 (owner chose the battery). |
+| 14 | Hero caught (M4.5) | Pac-Man folds open into a wedge and vanishes, with a jingle | The hero holds, shrinks in steps with cyan sparks crackling behind it, then bursts into one spark, the same spark eaten opponents become | Low | Keep. It shares only "the hero disappears"; the shape, steps and sparks are our own. |
 
 ## The name (finding 1)
 

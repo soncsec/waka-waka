@@ -27,7 +27,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 ## 3. Constraints (shared by every Soncrant Arcade game)
 
 - Browser only, single player: desktop browsers (current Chrome, Firefox, Safari, Edge), phone browsers in portrait, and tablet browsers either way.
-- No accounts, payments, analytics, cookies or third-party requests. localStorage holds only the high score.
+- No accounts, payments, analytics, cookies or third-party requests. localStorage holds only the high score and the reduced-flash setting.
 - Art keeps its native pixel style; whole-number scaling only.
 - Served at `games.soncrant.com/waka-waka/` over HTTP (ADR-010), behind the security headers in the portal's Apache config.
 - Security comes first: release only with no critical or high vulnerabilities and passing static (CodeQL, ESLint, npm audit, gitleaks) and dynamic (ZAP) checks.
@@ -55,6 +55,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-19 | Touch controls (M4.1): a floating joystick in the space around the maze instead of a d-pad; swipes keep working; shown on touchscreens only, with no setting |
 | 2026-10-19 | Bonus item (M3.3): a neon battery cell, chosen by the owner; it appears twice per maze on the hero's start spot and is worth more on later mazes |
 | 2026-10-19 | Screens (M4.3): the title shows the logo, best score and the cast with their moves, taking turns with a how-to-play page like an arcade attract mode; any key or tap plays. After game over any key or tap plays again at once (NEW BEST! when earned) and Esc goes to the title |
+| 2026-10-19 | Reduced flash (M4.5): follows the device's "reduce motion" setting until the player switches it on the title screen (F or a tap); the choice is saved, so localStorage now holds the high score and this one setting. The hero fizzles into sparks when caught |
 
 ## 5. Open questions
 

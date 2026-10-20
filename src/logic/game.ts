@@ -241,6 +241,11 @@ export function clearMaze(state: GameState): void {
   enter(state, 'cleared');
 }
 
+/** The hero is caught now, as if an opponent reached it; only during play (used by the e2e hook). */
+export function catchHero(state: GameState): void {
+  if (state.phase === 'playing' && !state.paused) enter(state, 'dying');
+}
+
 /** Ends the run at once, as if the last life was lost (used by the e2e hook). */
 export function endRun(state: GameState): void {
   state.lives = 0;

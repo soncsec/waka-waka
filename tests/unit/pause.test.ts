@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ROUND, STEP_HZ } from '../../src/config/tuning';
 import {
+  catchHero,
   clearMaze,
   createGame,
   endRun,
@@ -63,5 +64,18 @@ describe('endRun (e2e hook)', () => {
     expect(state).toMatchObject({ phase: 'gameover', lives: 0, paused: false, phaseTime: 0 });
     steps(state, 1);
     expect(state.phase).toBe('gameover');
+  });
+});
+
+describe('catchHero (e2e hook)', () => {
+  it('starts the dying phase during play, and a life is lost after it', () => {
+    const state = createGame(fallbackMaze(1));
+    catchHero(state);
+    expect(state.phase).toBe('ready');
+    steps(state, ROUND.readySeconds + 0.1);
+    catchHero(state);
+    expect(state).toMatchObject({ phase: 'dying', phaseTime: 0 });
+    steps(state, ROUND.deathSeconds + 0.1);
+    expect(state).toMatchObject({ phase: 'ready', lives: ROUND.lives - 1 });
   });
 });

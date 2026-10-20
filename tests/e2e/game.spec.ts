@@ -734,3 +734,127 @@ test.describe('title, help and game-over screens (M4.3)', () => {
     });
   });
 });
+
+test.describe('reduced flash and the fizzle (M4.5)', () => {
+  const KEY = 'waka-waka.reducedFlash';
+  const title = (page: Page) => page.evaluate(() => window.__game?.title() ?? null);
+  const seed = (page: Page, value: string) =>
+    page.addInitScript(
+      ([k, v]) => {
+        if (!sessionStorage.getItem('seeded')) {
+          localStorage.setItem(k, v);
+          sessionStorage.setItem('seeded', '1');
+        }
+      },
+      [KEY, value] as const,
+    );
+
+  /** Gets the hero caught, and records the fizzle at every step until the next life. */
+  async function recordFizzle(page: Page): Promise<NonNullable<GameSnapshot['death']>[]> {
+    await expect
+      .poll(async () => (await snapshot(page)).phase, { timeout: 15_000 })
+      .toBe('playing');
+    await page.evaluate(() => {
+      const w = window as unknown as { fizzle: unknown[] };
+      w.fizzle = [];
+      window.__game?.onStep(() => {
+        const death = window.__game?.snapshot()?.death;
+        if (death) w.fizzle.push(death);
+      });
+      window.__game?.catchHero();
+    });
+    await expect.poll(async () => (await snapshot(page)).phase, { timeout: 15_000 }).toBe('ready');
+    return page.evaluate(
+      () => (window as unknown as { fizzle: NonNullable<GameSnapshot['death']>[] }).fizzle,
+    );
+  }
+
+  test('off by default; F on the title switches it on, it is saved, and the game uses it', async ({
+    page,
+  }) => {
+    await page.goto('./?seed=7');
+    await expect
+      .poll(async () => (await title(page))?.reducedFlash, { timeout: 15_000 })
+      .toBe(false);
+    await page.keyboard.press('KeyF');
+    expect(await title(page)).toMatchObject({ reducedFlash: true });
+    // F switches the setting; it doesn't start a game.
+    expect(await page.evaluate(() => window.__game?.scene())).toBe('Title');
+    expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe('1');
+
+    await page.reload();
+    await expect
+      .poll(async () => (await title(page))?.reducedFlash, { timeout: 15_000 })
+      .toBe(true);
+    await startFromTitle(page);
+    expect((await snapshot(page)).reducedFlash).toBe(true);
+    // Only the high score and this setting are ever stored.
+    const keys = await page.evaluate(() => Object.keys(localStorage).sort());
+    expect(keys.every((k) => ['waka-waka.highScore', KEY].includes(k))).toBe(true);
+  });
+
+  test('a tap on the button switches it; a tap elsewhere starts a game', async ({ page }) => {
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.takesInput, { timeout: 15_000 }).toBe(true);
+    const box = await page.locator('#game canvas').boundingBox();
+    if (!box) throw new Error('no canvas');
+    const zoom = box.width / 384;
+    // The button is centred, 1.5 tiles above the bottom of the 464 px screen.
+    await page.mouse.click(box.x + box.width / 2, box.y + (464 - 24) * zoom);
+    expect(await title(page)).toMatchObject({ reducedFlash: true });
+    await page.mouse.click(box.x + box.width / 2, box.y + (464 - 24) * zoom);
+    expect(await title(page)).toMatchObject({ reducedFlash: false });
+    expect(await page.evaluate(() => window.__game?.scene())).toBe('Title');
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect.poll(() => page.evaluate(() => window.__game?.scene() ?? null)).toBe('Game');
+  });
+
+  test("follows the device's reduce-motion setting until the player chooses", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('./?seed=7');
+    await expect
+      .poll(async () => (await title(page))?.reducedFlash, { timeout: 15_000 })
+      .toBe(true);
+    await page.keyboard.press('KeyF');
+    expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe('0');
+    await page.reload();
+    await expect
+      .poll(async () => (await title(page))?.reducedFlash, { timeout: 15_000 })
+      .toBe(false);
+  });
+
+  for (const bad of ['true', '<b>1</b>', ' 1', '2']) {
+    test(`a tampered stored setting (${bad}) is removed`, async ({ page }) => {
+      await seed(page, bad);
+      await page.goto('./?seed=7');
+      await expect
+        .poll(async () => (await title(page))?.reducedFlash, { timeout: 15_000 })
+        .toBe(false);
+      expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBeNull();
+    });
+  }
+
+  test('caught: the hero crackles, shrinks and bursts, then the next life starts', async ({
+    page,
+  }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    const fizzle = await recordFizzle(page);
+    expect(fizzle.some((d) => d.crackle !== null)).toBe(true);
+    expect(fizzle.some((d) => d.heroScale > 0 && d.heroScale < 1)).toBe(true);
+    expect(fizzle.some((d) => d.burst !== null && d.burst > 0)).toBe(true);
+    expect((await snapshot(page)).lives).toBe(2);
+    expect(watched.errors).toEqual([]);
+  });
+
+  test('with reduced flash the hero shrinks and bursts with no crackle', async ({ page }) => {
+    await seed(page, '1');
+    await openGame(page, '?seed=7');
+    expect((await snapshot(page)).reducedFlash).toBe(true);
+    const fizzle = await recordFizzle(page);
+    expect(fizzle.length).toBeGreaterThan(0);
+    expect(fizzle.every((d) => d.crackle === null)).toBe(true);
+    expect(fizzle.some((d) => d.heroScale > 0 && d.heroScale < 1)).toBe(true);
+    expect(fizzle.some((d) => d.burst !== null && d.burst > 0)).toBe(true);
+  });
+});

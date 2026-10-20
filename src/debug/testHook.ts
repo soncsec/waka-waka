@@ -15,6 +15,8 @@ export interface TestHook {
   title(): TitleSnapshot | null;
   /** Ends the run now, as losing the last life would. */
   endRun(): void;
+  /** The hero is caught now, during play (M4.5). */
+  catchHero(): void;
   /** Eats every dot left, so the maze is cleared at once. */
   skipMaze(): void;
   /** Scares the opponents as a power pellet would. */
@@ -43,6 +45,10 @@ export function installTestHook(game: Phaser.Game): void {
     title: () => {
       const s = game.scene.getScene('Title') as TitleScene | null;
       return s && game.scene.isActive('Title') ? s.snapshot() : null;
+    },
+    catchHero: () => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      if (s && game.scene.isActive('Game')) s.catchHero();
     },
     endRun: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
