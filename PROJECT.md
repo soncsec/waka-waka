@@ -58,6 +58,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-19 | Reduced flash (M4.5): follows the device's "reduce motion" setting until the player switches it on the title screen (F or a tap); the choice is saved, so localStorage now holds the high score and this one setting. The hero fizzles into sparks when caught |
 | 2026-10-20 | Sound (M5): the owner chose 12 CC0 sounds from a listening page (Juhani Junkala's retro pack and Kenney's digital pack); M mutes, also a button on the title and a speaker in the HUD; the mute choice is remembered, so localStorage holds the high score and two settings |
 | 2026-10-20 | The owner signed off the playtest (M2.6), the balance pass (M3.4) and M4 with no changes; the difficulty table is filled to the plateau at maze 20 (M3.1) |
+| 2026-10-20 | Originality re-check (M6.2): the pellet scores 40 (was 50), and the house releases after 25 and 55 dots with 4.5 s and 3.5 s idle timers (were Pac-Man's 30, 60, 4 s and 3 s); the title's one-by-one cast stays |
 
 ## 5. Open questions
 
