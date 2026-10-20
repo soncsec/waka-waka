@@ -135,8 +135,9 @@ const FRENZY: FrenzyRow = { every: 20, tell: 1, tellSpeed: 0.5, burst: 3, factor
 const MAZE_1: LevelRow = {
   heroSpeed: 7.5,
   opponentSpeed: 7.0,
-  releaseDots: [0, 0, 30, 60],
-  releaseIdleSeconds: 4,
+  // Our own release numbers, not Pac-Man's 30, 60 and 4 s (docs/ORIGINALITY.md finding 16).
+  releaseDots: [0, 0, 25, 55],
+  releaseIdleSeconds: 4.5,
   modes: [
     { mode: 'scatter', seconds: 6 },
     { mode: 'chase', seconds: 22 },
@@ -183,7 +184,7 @@ const BAND_6: LevelRow = {
   ...MAZE_5,
   opponentSpeed: 7.2,
   releaseDots: [0, 0, 15, 40],
-  releaseIdleSeconds: 3,
+  releaseIdleSeconds: 3.5,
   modes: [
     { mode: 'scatter', seconds: 5 },
     { mode: 'chase', seconds: 24 },
@@ -319,7 +320,8 @@ export const OPPONENT_ART = {
 /** Points. */
 export const SCORE = {
   dot: 10,
-  pellet: 50,
+  /** Not Pac-Man's 50 (docs/ORIGINALITY.md finding 15). */
+  pellet: 40,
   /** Points for each scared opponent eaten on one pellet, in order; the last repeats. */
   eaten: [100, 300, 700, 1500],
 } as const;
