@@ -259,6 +259,27 @@ export const HIGH_SCORE = {
   maxDigits: 16,
 } as const;
 
+/**
+ * The title screen (M4.3): the cast page and the how-to-play page take turns,
+ * like an arcade attract mode. Any key or tap starts a game.
+ */
+export const TITLE = {
+  /** Seconds the cast page shows, then the help page, before the cycle repeats. */
+  castSeconds: 7,
+  helpSeconds: 8,
+  /** The cast appears one row at a time (all at once for reduced motion). */
+  revealSeconds: 0.6,
+  /** Blinks per second of "PRESS A KEY OR TAP TO PLAY"; steady for reduced motion. */
+  promptBlinkHz: 1,
+  /** Keys and taps are ignored this long after the title appears, so the key that left a game doesn't start one. */
+  inputDelay: 0.3,
+  /** The WAKA-WAKA logo: Press Start 2P at 3 times its native size. */
+  logoSize: 24,
+  /** Rows of the cast page, then of the help page's points list, in pixels apart. */
+  rowGap: 48,
+  helpRowGap: 32,
+} as const;
+
 /** Touch controls (WW-06). */
 export const SWIPE = {
   /** Distance in game pixels a finger must travel to count as a swipe. */

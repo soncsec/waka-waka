@@ -32,9 +32,12 @@ src/
 │   ├── specials       special moves: one state machine per opponent, fairness rules (WW-10)
 │   ├── difficulty     the difficulty row for a maze number (WW-07)
 │   ├── joystick       the joystick's direction and knob position (WW-06)
+│   ├── title          the title screen's page cycle and the NEW BEST! rule (M4.3)
 │   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
-├── scenes/            Phaser scenes: thin, call into logic/
+├── scenes/            Phaser scenes (Title, then Game): thin, call into logic/
+│   ├── textures.ts    sprite textures shared by both scenes
+│   └── highScoreStore.ts  the high score in localStorage (WW-08)
 ├── ui/joystick.ts     the floating touch joystick, plain DOM around the canvas (WW-06)
 ├── ui/rotatePrompt.ts "turn your phone upright" notice for phones held landscape (WW-05)
 └── debug/testHook.ts  window.__game for Playwright (e2e build only)

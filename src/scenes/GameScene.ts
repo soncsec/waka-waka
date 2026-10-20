@@ -1,24 +1,11 @@
 import Phaser from 'phaser';
-import {
-  BATTERY_FRAMES,
-  batteryPixels,
-  HERO_MOUTH_FRAMES,
-  heroPixels,
-  opponentPixels,
-  dashPixels,
-  lungePixels,
-  scaredPixels,
-  SPARK_FRAMES,
-  sparkPixels,
-  type OpponentLook,
-} from '../art/sprites';
-import { drawWalls, type Pixels } from '../art/walls';
+import { BATTERY_FRAMES, HERO_MOUTH_FRAMES, SPARK_FRAMES } from '../art/sprites';
+import { drawWalls } from '../art/walls';
 import {
   BONUS_ART,
   GAME_HEIGHT,
   GAME_WIDTH,
   HERO,
-  HIGH_SCORE,
   HUD,
   HUD_HEIGHT,
   MAX_STEPS_PER_FRAME,
@@ -36,6 +23,7 @@ import {
 import {
   clearMaze,
   createGame,
+  endRun,
   modeOf,
   nextMazeDue,
   powerUp,
@@ -50,14 +38,28 @@ import {
   type Phase,
 } from '../logic/game';
 import { buildMaze, TILE } from '../logic/maze';
-import { DIR_VEC, DIRS, type Dir, type Point } from '../logic/movement';
+import { DIR_VEC, type Dir, type Point } from '../logic/movement';
 import type { OpponentName, OpponentState } from '../logic/opponents';
-import { formatHighScore, parseHighScore } from '../logic/highscore';
 import { phaseExitOf, primeSpecial, type SpecialPhase } from '../logic/specials';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
+import { isNewBest } from '../logic/title';
 import { createJoystick } from '../ui/joystick';
 import { createRotatePrompt } from '../ui/rotatePrompt';
+import { loadHighScore, storeHighScore } from './highScoreStore';
+import {
+  addPixelTexture,
+  batteryTexture,
+  dashTexture,
+  frenzyTexture,
+  heroTexture,
+  lungeTexture,
+  makeTextures,
+  opponentTexture,
+  PELLET_TEXTURE,
+  scaredTexture,
+  sparkTexture,
+} from './textures';
 
 /** Read-only view of the game state, used by the e2e test hook. */
 export interface GameSnapshot {
@@ -83,6 +85,8 @@ export interface GameSnapshot {
   lives: number;
   /** Best score shown in the HUD. */
   highScore: number;
+  /** The run beat the best score from before it began; shown as NEW BEST! at game over (M4.3). */
+  newBest: boolean;
   phase: Phase;
   /** Paused with P or Esc, or because the tab lost focus (M4.4). */
   paused: boolean;
@@ -95,18 +99,6 @@ export interface GameSnapshot {
   /** Logical canvas size and the current whole-number zoom. */
   screen: { width: number; height: number; zoom: number };
 }
-
-const PELLET_TEXTURE = 'pellet';
-const batteryTexture = (frame: number): string => `battery-${frame}`;
-const heroTexture = (dir: Dir, frame: number): string => `hero-${dir}-${frame}`;
-const scaredTexture = (index: number, look: OpponentLook, frame: number): string =>
-  `scared-${index}-${look}-${frame}`;
-const sparkTexture = (frame: number): string => `spark-${frame}`;
-const frenzyTexture = (dir: Dir, frame: number): string => `frenzy-${dir}-${frame}`;
-const dashTexture = (dir: Dir): string => `dash-${dir}`;
-const lungeTexture = (dir: Dir): string => `lunge-${dir}`;
-const opponentTexture = (index: number, dir: Dir, frame: number): string =>
-  `opponent-${index}-${dir}-${frame}`;
 
 /** Emitted after every simulation step, so the e2e hook can watch states that last only a few steps. */
 export const STEP_EVENT = 'step';
@@ -130,6 +122,8 @@ interface SceneData {
   seed?: number;
   level?: number;
   carry?: Carry;
+  /** The stored best when the run began, so game over can say NEW BEST! (M4.3). */
+  bestBefore?: number;
 }
 
 /** A 0xrrggbb colour as the CSS string Phaser text styles want. */
@@ -166,6 +160,9 @@ export class GameScene extends Phaser.Scene {
   /** Best score so far (WW-08): loaded once per scene start, saved on clear, game over and page hide. */
   private highScore = 0;
   private savedHighScore = 0;
+  /** The best score from before this run began (M4.3). */
+  private bestBefore: number | undefined;
+  private newBestText!: Phaser.GameObjects.Text;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private message!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
@@ -184,6 +181,7 @@ export class GameScene extends Phaser.Scene {
     this.seed = data.seed ?? runSeed();
     this.level = data.level ?? 1;
     this.carry = data.carry;
+    this.bestBefore = data.bestBefore;
   }
 
   create(): void {
@@ -197,10 +195,11 @@ export class GameScene extends Phaser.Scene {
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
     this.state = createGame(built.maze, { level: this.level, carry: this.carry });
-    this.highScore = this.loadHighScore();
+    this.highScore = loadHighScore();
     this.savedHighScore = this.highScore;
+    this.bestBefore ??= this.highScore;
 
-    this.makeTextures();
+    makeTextures(this);
     this.drawMaze();
     this.drawHud();
     this.drawBonus();
@@ -234,7 +233,8 @@ export class GameScene extends Phaser.Scene {
       const { score, lives, extraLifeGiven } = this.state;
       this.saveHighScore();
       const carry = { score, lives, extraLifeGiven };
-      this.scene.restart({ seed: this.seed, level: this.level + 1, carry });
+      const { seed, bestBefore } = this;
+      this.scene.restart({ seed, level: this.level + 1, carry, bestBefore });
       return;
     }
 
@@ -274,6 +274,7 @@ export class GameScene extends Phaser.Scene {
       score: this.state.score,
       lives: this.state.lives,
       highScore: this.highScore,
+      newBest: this.newBest(),
       phase: this.state.phase,
       paused: this.state.paused,
       mode: modeOf(this.state),
@@ -284,32 +285,14 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  /** Test hook: clears the maze at once. */
-  /**
-   * The stored high score, validated (WW-08). An invalid value is reset; storage
-   * that is blocked or full is ignored, and the game plays on without it.
-   */
-  private loadHighScore(): number {
-    try {
-      const raw = window.localStorage.getItem(HIGH_SCORE.storageKey);
-      const best = parseHighScore(raw);
-      if (raw !== null && raw !== formatHighScore(best)) {
-        window.localStorage.setItem(HIGH_SCORE.storageKey, formatHighScore(best));
-      }
-      return best;
-    } catch {
-      return 0;
-    }
-  }
-
   private saveHighScore(): void {
     if (this.highScore <= this.savedHighScore) return;
-    try {
-      window.localStorage.setItem(HIGH_SCORE.storageKey, formatHighScore(this.highScore));
-      this.savedHighScore = this.highScore;
-    } catch {
-      // Storage blocked (private mode, quota): keep playing without saving.
-    }
+    // If storage is blocked (private mode, quota), keep playing without saving.
+    if (storeHighScore(this.highScore)) this.savedHighScore = this.highScore;
+  }
+
+  private newBest(): boolean {
+    return isNewBest(this.state.score, this.bestBefore ?? 0);
   }
 
   /** Test hook: the effect of a power pellet, without walking to one. */
@@ -327,6 +310,13 @@ export class GameScene extends Phaser.Scene {
     primeSpecial(this.state.specials, index);
   }
 
+  /** Test hook: ends the run now, as losing the last life would. */
+  endRun(): void {
+    endRun(this.state);
+    this.showPhase();
+  }
+
+  /** Test hook: clears the maze at once. */
   skipMaze(): void {
     clearMaze(this.state);
     this.redrawDots();
@@ -347,7 +337,7 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown', (e: KeyboardEvent) => {
       if (handled.has(e)) return;
       handled.add(e);
-      if (this.restartIfOver()) return;
+      if (this.restartIfOver(e.code === 'Escape')) return;
       if (PAUSE_KEYS.has(e.code)) {
         this.pause(!this.state.paused);
         return;
@@ -432,10 +422,15 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  /** At game over, after a short delay, any key or tap starts a new game. */
-  private restartIfOver(): boolean {
+  /**
+   * At game over, after a short delay, any key or tap starts a new game, and Esc
+   * goes back to the title screen (M4.3). True at game over, so the input does nothing else.
+   */
+  private restartIfOver(toTitle = false): boolean {
     if (this.state.phase !== 'gameover') return false;
-    if (this.state.phaseTime >= ROUND.restartDelay) this.scene.restart({});
+    if (this.state.phaseTime < ROUND.restartDelay) return true;
+    if (toTitle) this.scene.start('Title');
+    else this.scene.restart({});
     return true;
   }
 
@@ -538,6 +533,7 @@ export class GameScene extends Phaser.Scene {
     // The controls hint shows with GET SET! on the first maze only.
     this.hint.setVisible(!paused && phase === 'ready' && this.level === 1);
     this.gameOverPanel.setVisible(phase === 'gameover');
+    this.newBestText.setVisible(phase === 'gameover' && this.newBest());
   }
 
   private drawMessages(): void {
@@ -555,17 +551,28 @@ export class GameScene extends Phaser.Scene {
 
     const middle = toScreen({ x: 0, y: (house.y0 + house.y1) / 2 });
     const panel = this.add
-      .rectangle(0, 0, GAME_WIDTH - 4 * TILE_SIZE, 4 * TILE_SIZE, NEON.background, 0.92)
+      .rectangle(0, 0, GAME_WIDTH - 4 * TILE_SIZE, 6 * TILE_SIZE, NEON.background, 0.92)
       .setStrokeStyle(2, NEON.wallLine);
     const title = this.add
-      .text(0, -16, 'RUN ENDED', { ...style, color: NEON.gameOver })
+      .text(0, -2 * TILE_SIZE, 'RUN ENDED', { ...style, color: NEON.gameOver })
+      .setOrigin(0.5);
+    this.newBestText = this.add
+      .text(0, -TILE_SIZE, 'NEW BEST!', { ...style, color: NEON.ready })
       .setOrigin(0.5);
     // The run seed, so a player can report or replay this run with ?seed=.
     const seed = this.add.text(0, 0, `SEED ${this.seed}`, dim).setOrigin(0.5);
     const hint = this.add
-      .text(0, 16, 'PRESS A KEY OR TAP', { ...style, color: NEON.hud })
+      .text(0, TILE_SIZE, 'PRESS A KEY OR TAP', { ...style, color: NEON.hud })
       .setOrigin(0.5);
-    this.gameOverPanel = this.add.container(GAME_WIDTH / 2, middle.y, [panel, title, seed, hint]);
+    const toTitle = this.add.text(0, 2 * TILE_SIZE, 'ESC FOR TITLE', dim).setOrigin(0.5);
+    this.gameOverPanel = this.add.container(GAME_WIDTH / 2, middle.y, [
+      panel,
+      title,
+      this.newBestText,
+      seed,
+      hint,
+      toTitle,
+    ]);
 
     // Pause (M4.4): the same panel, with how to carry on.
     const pauseBox = this.add
@@ -617,7 +624,7 @@ export class GameScene extends Phaser.Scene {
     const { maze } = this.state;
     const key = `walls-${this.seed}-${this.level}`;
     // The same seed and level always give the same maze, so a restart reuses the texture.
-    if (!this.textures.exists(key)) this.addPixelTexture(key, drawWalls(maze, TILE_SIZE));
+    addPixelTexture(this, key, () => drawWalls(maze, TILE_SIZE));
     this.add.image(0, HUD_HEIGHT, key).setOrigin(0, 0);
 
     this.dots = this.add.graphics({ fillStyle: { color: NEON.dot } });
@@ -642,68 +649,6 @@ export class GameScene extends Phaser.Scene {
         this.dots.fillRect(p.x - s / 2, p.y - s / 2, s, s);
       }),
     );
-  }
-
-  private makeTextures(): void {
-    for (const dir of DIRS) {
-      HERO_MOUTH_FRAMES.forEach((mouth, frame) => {
-        const key = heroTexture(dir, frame);
-        if (!this.textures.exists(key)) this.addPixelTexture(key, heroPixels(dir, mouth));
-      });
-    }
-    for (const dir of DIRS) {
-      for (let frame = 0; frame < OPPONENT_ART.frames; frame++) {
-        for (const who of [0, 1, 2, 3] as const) {
-          const key = opponentTexture(who, dir, frame);
-          if (!this.textures.exists(key))
-            this.addPixelTexture(key, opponentPixels(who, dir, frame));
-        }
-        const hot = frenzyTexture(dir, frame);
-        if (!this.textures.exists(hot))
-          this.addPixelTexture(hot, opponentPixels(0, dir, frame, NEON.frenzyHot));
-      }
-    }
-    for (const dir of DIRS) {
-      if (!this.textures.exists(dashTexture(dir)))
-        this.addPixelTexture(dashTexture(dir), dashPixels(dir));
-      if (!this.textures.exists(lungeTexture(dir)))
-        this.addPixelTexture(lungeTexture(dir), lungePixels(dir));
-    }
-    for (let frame = 0; frame < BATTERY_FRAMES; frame++) {
-      const key = batteryTexture(frame);
-      if (!this.textures.exists(key)) this.addPixelTexture(key, batteryPixels(frame + 1));
-    }
-    for (let frame = 0; frame < SPARK_FRAMES; frame++) {
-      const key = sparkTexture(frame);
-      if (!this.textures.exists(key)) this.addPixelTexture(key, sparkPixels(frame));
-    }
-    for (let frame = 0; frame < OPPONENT_ART.frames; frame++) {
-      for (const who of [0, 1, 2, 3] as const) {
-        for (const look of ['scared', 'flash'] as const) {
-          const key = scaredTexture(who, look, frame);
-          if (!this.textures.exists(key)) this.addPixelTexture(key, scaredPixels(who, look, frame));
-        }
-      }
-    }
-    if (this.textures.exists(PELLET_TEXTURE)) return;
-    const n = PICKUP_ART.pelletSize;
-    const g = this.make.graphics({}, false);
-    // A rounded square: the outer ring in neon pink, the core white.
-    g.fillStyle(NEON.pellet);
-    g.fillRect(1, 0, n - 2, n);
-    g.fillRect(0, 1, n, n - 2);
-    g.fillStyle(NEON.pelletCore);
-    g.fillRect(2, 1, n - 4, n - 2);
-    g.fillRect(1, 2, n - 2, n - 4);
-    g.generateTexture(PELLET_TEXTURE, n, n);
-    g.destroy();
-  }
-
-  private addPixelTexture(key: string, art: Pixels): void {
-    const texture = this.textures.createCanvas(key, art.width, art.height);
-    if (!texture) throw new Error(`could not create texture ${key}`);
-    texture.getContext().putImageData(new ImageData(art.data, art.width, art.height), 0, 0);
-    texture.refresh();
   }
 
   private drawHud(): void {

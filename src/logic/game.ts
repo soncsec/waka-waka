@@ -241,6 +241,14 @@ export function clearMaze(state: GameState): void {
   enter(state, 'cleared');
 }
 
+/** Ends the run at once, as if the last life was lost (used by the e2e hook). */
+export function endRun(state: GameState): void {
+  state.lives = 0;
+  state.paused = false;
+  state.bonusTime = 0;
+  enter(state, 'gameover');
+}
+
 /** True once the "MAZE CLEARED!" pause is over and the next maze should start. */
 export function nextMazeDue(state: GameState): boolean {
   return state.phase === 'cleared' && state.phaseTime >= ROUND.clearedSeconds;

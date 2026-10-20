@@ -3,6 +3,7 @@ import './style.css';
 import { GAME_HEIGHT, GAME_WIDTH, HUD, NEON } from './config/tuning';
 import { integerZoom } from './logic/scaling';
 import { GameScene } from './scenes/GameScene';
+import { TitleScene } from './scenes/TitleScene';
 
 const zoomForWindow = (): number =>
   integerZoom(window.innerWidth, window.innerHeight, GAME_WIDTH, GAME_HEIGHT);
@@ -24,7 +25,8 @@ export const game = new Phaser.Game({
     mode: Phaser.Scale.NONE,
     zoom: zoomForWindow(),
   },
-  scene: [GameScene],
+  // The first scene listed starts first.
+  scene: [TitleScene, GameScene],
 });
 
 window.addEventListener('resize', () => {
