@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ROUND, STEP_HZ } from '../../src/config/tuning';
-import { clearMaze, createGame, setPaused, stepGame, type GameState } from '../../src/logic/game';
+import {
+  clearMaze,
+  createGame,
+  endRun,
+  setPaused,
+  stepGame,
+  type GameState,
+} from '../../src/logic/game';
 import { fallbackMaze } from '../../src/logic/maze';
 
 const DT = 1 / STEP_HZ;
@@ -44,5 +51,17 @@ describe('pause (M4.4)', () => {
     clearMaze(cleared);
     setPaused(cleared, true);
     expect(cleared.paused).toBe(false);
+  });
+});
+
+describe('endRun (e2e hook)', () => {
+  it('ends the run as losing the last life would', () => {
+    const state = createGame(fallbackMaze(1));
+    steps(state, ROUND.readySeconds + 1);
+    setPaused(state, true);
+    endRun(state);
+    expect(state).toMatchObject({ phase: 'gameover', lives: 0, paused: false, phaseTime: 0 });
+    steps(state, 1);
+    expect(state.phase).toBe('gameover');
   });
 });

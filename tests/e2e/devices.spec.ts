@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { startFromTitle } from './title';
 
 /**
  * The game must fit, at a whole-number zoom, on the screens the owner plays on (WW-05):
@@ -21,9 +22,7 @@ for (const screen of SCREENS) {
 
     test(`fits on screen at zoom ${screen.zoom}`, async ({ page }) => {
       await page.goto('./?seed=7');
-      await expect
-        .poll(() => page.evaluate(() => window.__game?.scene() ?? null), { timeout: 15_000 })
-        .toBe('Game');
+      await startFromTitle(page);
       const zoom = await page.evaluate(() => window.__game?.snapshot()?.screen.zoom);
       expect(zoom).toBe(screen.zoom);
       const box = await page.locator('#game canvas').boundingBox();

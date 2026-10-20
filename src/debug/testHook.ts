@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
 import { STEP_EVENT, type GameScene, type GameSnapshot } from '../scenes/GameScene';
+import type { TitleScene, TitleSnapshot } from '../scenes/TitleScene';
 
 /**
  * Test-only hook for Playwright (ADR-006). It is loaded only in the e2e build
@@ -10,6 +11,10 @@ export interface TestHook {
   /** The key of the scene that is running, or null while loading. */
   scene(): string | null;
   snapshot(): GameSnapshot | null;
+  /** The title screen (M4.3) while it shows, else null. */
+  title(): TitleSnapshot | null;
+  /** Ends the run now, as losing the last life would. */
+  endRun(): void;
   /** Eats every dot left, so the maze is cleared at once. */
   skipMaze(): void;
   /** Scares the opponents as a power pellet would. */
@@ -34,6 +39,14 @@ export function installTestHook(game: Phaser.Game): void {
     snapshot: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
       return s && game.scene.isActive('Game') ? s.snapshot() : null;
+    },
+    title: () => {
+      const s = game.scene.getScene('Title') as TitleScene | null;
+      return s && game.scene.isActive('Title') ? s.snapshot() : null;
+    },
+    endRun: () => {
+      const s = game.scene.getScene('Game') as GameScene | null;
+      if (s && game.scene.isActive('Game')) s.endRun();
     },
     skipMaze: () => {
       const s = game.scene.getScene('Game') as GameScene | null;

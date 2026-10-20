@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { GameSnapshot } from '../../src/scenes/GameScene';
+import { startFromTitle } from './title';
 
 /** Records console errors, uncaught exceptions and requests to other hosts. */
 function watchPage(page: Page): { errors: string[]; foreignRequests: string[] } {
@@ -24,11 +25,10 @@ async function snapshot(page: Page): Promise<GameSnapshot> {
   return snap;
 }
 
+/** Loads the page and starts a game from the title screen. */
 async function openGame(page: Page, query = ''): Promise<void> {
   await page.goto(`./${query}`);
-  await expect
-    .poll(() => page.evaluate(() => window.__game?.scene() ?? null), { timeout: 15_000 })
-    .toBe('Game');
+  await startFromTitle(page);
 }
 
 test('boots with no console errors and no third-party requests', async ({ page }) => {
@@ -616,12 +616,121 @@ test('the same ?seed= gives the same maze; no seed gives a new maze each run', a
 });
 
 test('an invalid ?seed= is ignored and a random seed is used', async ({ page }) => {
-  // Ten page loads: allow for a busy machine.
-  test.setTimeout(60_000);
+  // Ten page loads, each through the title screen: allow for a busy machine.
+  test.setTimeout(120_000);
   for (const bad of ['-1', '1e5', '99999999999', 'abc', '%3Cscript%3E']) {
     await openGame(page, `?seed=${bad}`);
     const first = (await snapshot(page)).seed;
     await openGame(page, `?seed=${bad}`);
     expect((await snapshot(page)).seed, bad).not.toBe(first);
   }
+});
+
+test.describe('title, help and game-over screens (M4.3)', () => {
+  const title = (page: Page) => page.evaluate(() => window.__game?.title() ?? null);
+
+  test('the title shows the cast, then the help page, and a key starts a game', async ({
+    page,
+  }) => {
+    const watched = watchPage(page);
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.page, { timeout: 15_000 }).toBe('cast');
+    // The cast appears one row at a time.
+    expect((await title(page))?.castShown).toBeLessThan(5);
+    await expect.poll(async () => (await title(page))?.castShown, { timeout: 15_000 }).toBe(5);
+    // The pages take turns on their own.
+    await expect.poll(async () => (await title(page))?.page, { timeout: 15_000 }).toBe('help');
+    await page.keyboard.press('Space');
+    await expect.poll(() => page.evaluate(() => window.__game?.scene() ?? null)).toBe('Game');
+    expect(await snapshot(page)).toMatchObject({ phase: 'ready', level: 1, score: 0 });
+    expect(watched.errors).toEqual([]);
+    expect(watched.foreignRequests).toEqual([]);
+  });
+
+  test('P on the title starts a game that is not paused', async ({ page }) => {
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.takesInput, { timeout: 15_000 }).toBe(true);
+    await page.keyboard.press('KeyP');
+    await expect.poll(() => page.evaluate(() => window.__game?.scene() ?? null)).toBe('Game');
+    await page.waitForTimeout(300);
+    expect((await snapshot(page)).paused).toBe(false);
+  });
+
+  test('a shortcut key alone does not start a game', async ({ page }) => {
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.takesInput, { timeout: 15_000 }).toBe(true);
+    await page.keyboard.press('Shift');
+    await page.keyboard.press('Control');
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__game?.scene() ?? null)).toBe('Title');
+  });
+
+  test('reduced motion shows the whole cast at once', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.page, { timeout: 15_000 }).toBe('cast');
+    expect((await title(page))?.castShown).toBe(5);
+  });
+
+  test('beating the best says NEW BEST!, and Esc goes back to the title', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    expect((await snapshot(page)).highScore).toBe(0);
+    await expect
+      .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    await page.evaluate(() => window.__game?.endRun());
+    const over = await snapshot(page);
+    expect(over).toMatchObject({ phase: 'gameover', newBest: true });
+    // Esc straight away is ignored, like any key.
+    await page.keyboard.press('Escape');
+    expect((await snapshot(page)).phase).toBe('gameover');
+    await page.waitForTimeout(1200);
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await title(page))?.highScore).toBe(over.score);
+    // The title then starts a fresh game.
+    await startFromTitle(page);
+    expect(await snapshot(page)).toMatchObject({ phase: 'ready', score: 0, newBest: false });
+  });
+
+  test('no NEW BEST! when the run does not beat the stored best', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem('waka-waka.highScore', '999999');
+        sessionStorage.setItem('seeded', '1');
+      }
+    });
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    await page.evaluate(() => window.__game?.endRun());
+    expect(await snapshot(page)).toMatchObject({ phase: 'gameover', newBest: false });
+  });
+
+  test('NEW BEST! counts from the start of the run, across mazes', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    await expect
+      .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    // Clearing the maze saves the score as the best, but the run still beat the old best.
+    await page.evaluate(() => window.__game?.skipMaze());
+    await expect.poll(async () => (await snapshot(page)).level, { timeout: 15_000 }).toBe(2);
+    await page.evaluate(() => window.__game?.endRun());
+    expect(await snapshot(page)).toMatchObject({ phase: 'gameover', newBest: true });
+  });
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+    test('a tap below the maze starts a game', async ({ page }) => {
+      await page.goto('./?seed=7');
+      await expect
+        .poll(async () => (await title(page))?.takesInput, { timeout: 15_000 })
+        .toBe(true);
+      await page.touchscreen.tap(195, 800);
+      await expect.poll(() => page.evaluate(() => window.__game?.scene() ?? null)).toBe('Game');
+      // The tap that started the game shows no joystick.
+      await expect(page.locator('.joystick-on')).toHaveCount(0);
+    });
+  });
 });

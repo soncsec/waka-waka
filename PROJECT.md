@@ -54,6 +54,7 @@ Out of scope for v1: multiplayer, online leaderboards, accounts, a maze editor, 
 | 2026-10-19 | Originality review (docs/ORIGINALITY.md): keep the name Waka-Waka; change the on-screen texts, points, timings, extra-life score and targeting numbers; redesign the scared look; no "waka" chomp or siren in M5 and no fruit bonus in M3.3; the next production release waits for these fixes |
 | 2026-10-19 | Touch controls (M4.1): a floating joystick in the space around the maze instead of a d-pad; swipes keep working; shown on touchscreens only, with no setting |
 | 2026-10-19 | Bonus item (M3.3): a neon battery cell, chosen by the owner; it appears twice per maze on the hero's start spot and is worth more on later mazes |
+| 2026-10-19 | Screens (M4.3): the title shows the logo, best score and the cast with their moves, taking turns with a how-to-play page like an arcade attract mode; any key or tap plays. After game over any key or tap plays again at once (NEW BEST! when earned) and Esc goes to the title |
 
 ## 5. Open questions
 
