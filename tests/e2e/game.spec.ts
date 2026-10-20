@@ -799,10 +799,10 @@ test.describe('reduced flash and the fizzle (M4.5)', () => {
     const box = await page.locator('#game canvas').boundingBox();
     if (!box) throw new Error('no canvas');
     const zoom = box.width / 384;
-    // The button is centred, 1.5 tiles above the bottom of the 464 px screen.
-    await page.mouse.click(box.x + box.width / 2, box.y + (464 - 24) * zoom);
+    // The button is centred, 2.5 tiles above the bottom of the 464 px screen (M5.2 moved it up).
+    await page.mouse.click(box.x + box.width / 2, box.y + (464 - 40) * zoom);
     expect(await title(page)).toMatchObject({ reducedFlash: true });
-    await page.mouse.click(box.x + box.width / 2, box.y + (464 - 24) * zoom);
+    await page.mouse.click(box.x + box.width / 2, box.y + (464 - 40) * zoom);
     expect(await title(page)).toMatchObject({ reducedFlash: false });
     expect(await page.evaluate(() => window.__game?.scene())).toBe('Title');
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -857,4 +857,128 @@ test.describe('reduced flash and the fizzle (M4.5)', () => {
     expect(fizzle.some((d) => d.heroScale > 0 && d.heroScale < 1)).toBe(true);
     expect(fizzle.some((d) => d.burst !== null && d.burst > 0)).toBe(true);
   });
+});
+
+test.describe('sound and mute (M5.2)', () => {
+  const KEY = 'waka-waka.muted';
+  const title = (page: Page) => page.evaluate(() => window.__game?.title() ?? null);
+  const sounds = (page: Page) => page.evaluate(() => window.__game?.sounds() ?? {});
+  const played = async (page: Page, key: string): Promise<number> =>
+    ((await sounds(page)) as Record<string, number>)[key] ?? 0;
+
+  /** Clicks a point on the 384 x 464 game screen. */
+  async function clickGame(page: Page, x: number, y: number): Promise<void> {
+    const box = await page.locator('#game canvas').boundingBox();
+    if (!box) throw new Error('no canvas');
+    const zoom = box.width / 384;
+    await page.mouse.click(box.x + x * zoom, box.y + y * zoom);
+  }
+
+  test('sound is on by default; M on the title mutes, is saved, and does not start a game', async ({
+    page,
+  }) => {
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.takesInput, { timeout: 15_000 }).toBe(true);
+    expect(await title(page)).toMatchObject({ muted: false });
+    await page.keyboard.press('KeyM');
+    expect(await title(page)).toMatchObject({ muted: true });
+    expect(await page.evaluate(() => window.__game?.scene())).toBe('Title');
+    expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe('1');
+
+    await page.reload();
+    await expect.poll(async () => (await title(page))?.muted, { timeout: 15_000 }).toBe(true);
+    await startFromTitle(page);
+    expect((await snapshot(page)).muted).toBe(true);
+    // Muted: the game plays no sounds at all.
+    await expect
+      .poll(async () => (await snapshot(page)).score, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    expect(await sounds(page)).toEqual({});
+    // Only the high score, reduced flash and mute are ever stored.
+    const keys = await page.evaluate(() => Object.keys(localStorage));
+    const allowed = ['waka-waka.highScore', 'waka-waka.reducedFlash', KEY];
+    expect(keys.every((k) => allowed.includes(k))).toBe(true);
+  });
+
+  test('a tap on the sound button switches it', async ({ page }) => {
+    await page.goto('./?seed=7');
+    await expect.poll(async () => (await title(page))?.takesInput, { timeout: 15_000 }).toBe(true);
+    // The button is centred, 1 tile above the bottom of the screen.
+    await clickGame(page, 192, 464 - 16);
+    expect(await title(page)).toMatchObject({ muted: true });
+    await clickGame(page, 192, 464 - 16);
+    expect(await title(page)).toMatchObject({ muted: false });
+    expect(await page.evaluate(() => window.__game?.scene())).toBe('Title');
+    expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe('0');
+  });
+
+  test('the game plays its sounds: start, GET SET, dots, pause, resume and caught', async ({
+    page,
+  }) => {
+    const watched = watchPage(page);
+    await openGame(page, '?seed=7');
+    await expect.poll(() => played(page, 'sfx-start'), { timeout: 15_000 }).toBe(1);
+    expect(await played(page, 'sfx-ready')).toBe(1);
+    await expect.poll(() => played(page, 'sfx-dot'), { timeout: 15_000 }).toBeGreaterThan(0);
+
+    await page.keyboard.press('KeyP');
+    await expect.poll(() => played(page, 'sfx-pause')).toBe(1);
+    await page.keyboard.press('KeyP');
+    await expect.poll(() => played(page, 'sfx-resume')).toBe(1);
+
+    await page.evaluate(() => window.__game?.catchHero());
+    await expect.poll(() => played(page, 'sfx-caught'), { timeout: 15_000 }).toBe(1);
+    // The next life's GET SET!
+    await expect.poll(() => played(page, 'sfx-ready'), { timeout: 15_000 }).toBe(2);
+    expect(watched.errors).toEqual([]);
+    expect(watched.foreignRequests).toEqual([]);
+  });
+
+  test('M in the game mutes and unmutes; muted, nothing plays', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    await expect.poll(() => played(page, 'sfx-dot'), { timeout: 15_000 }).toBeGreaterThan(0);
+    await page.keyboard.press('KeyM');
+    await expect.poll(async () => (await snapshot(page)).muted).toBe(true);
+    // M doesn't pause.
+    expect((await snapshot(page)).paused).toBe(false);
+    // Caught and the next life's GET SET! would both play; muted, neither does.
+    const before = await sounds(page);
+    await page.evaluate(() => window.__game?.catchHero());
+    await expect.poll(async () => (await snapshot(page)).phase, { timeout: 15_000 }).toBe('ready');
+    expect(await sounds(page)).toEqual(before);
+    await page.keyboard.press('KeyM');
+    expect((await snapshot(page)).muted).toBe(false);
+    expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBe('0');
+  });
+
+  test('a tap on the HUD speaker mutes, even while paused, without resuming', async ({ page }) => {
+    await openGame(page, '?seed=7');
+    await page.keyboard.press('KeyP');
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(true);
+    // The speaker is in the middle of the bottom HUD row.
+    await clickGame(page, 192, 464 - 8);
+    await expect.poll(async () => (await snapshot(page)).muted).toBe(true);
+    expect((await snapshot(page)).paused).toBe(true);
+    // A tap elsewhere still resumes.
+    await clickGame(page, 192, 232);
+    await expect.poll(async () => (await snapshot(page)).paused).toBe(false);
+    expect((await snapshot(page)).muted).toBe(true);
+  });
+
+  for (const bad of ['true', '<b>1</b>', ' 1', '2']) {
+    test(`a tampered stored mute (${bad}) is removed and sound stays on`, async ({ page }) => {
+      await page.addInitScript(
+        ([k, v]) => {
+          if (!sessionStorage.getItem('seeded')) {
+            localStorage.setItem(k, v);
+            sessionStorage.setItem('seeded', '1');
+          }
+        },
+        [KEY, bad] as const,
+      );
+      await page.goto('./?seed=7');
+      await expect.poll(async () => (await title(page))?.muted, { timeout: 15_000 }).toBe(false);
+      expect(await page.evaluate((k) => localStorage.getItem(k), KEY)).toBeNull();
+    });
+  }
 });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { heroPixels, HERO_MOUTH_FRAMES, opponentPixels, SPRITE_SIZE } from '../../src/art/sprites';
+import {
+  heroPixels,
+  HERO_MOUTH_FRAMES,
+  opponentPixels,
+  speakerPixels,
+  SPRITE_SIZE,
+} from '../../src/art/sprites';
 import { NEON } from '../../src/config/tuning';
 
 const pixel = (data: Uint8ClampedArray, x: number, y: number): number | null => {
@@ -60,5 +66,20 @@ describe('opponentPixels', () => {
       a.every((v, i) => v === b[i]);
     expect(same(opponentPixels(0, 'up', 0).data, opponentPixels(0, 'up', 1).data)).toBe(false);
     expect(same(opponentPixels(2, 'up', 0).data, opponentPixels(2, 'up', 1).data)).toBe(true);
+  });
+});
+
+describe('speakerPixels (M5.2)', () => {
+  const lit = (p: ReturnType<typeof speakerPixels>): number =>
+    Array.from({ length: p.width * p.height }, (_, i) => p.data[i * 4 + 3]).filter((a) => a === 255)
+      .length;
+
+  it('draws a sprite-sized speaker, different when muted', () => {
+    const on = speakerPixels(false);
+    const off = speakerPixels(true);
+    expect([on.width, on.height]).toEqual([SPRITE_SIZE, SPRITE_SIZE]);
+    expect(lit(on)).toBeGreaterThan(20);
+    expect(lit(off)).toBeGreaterThan(20);
+    expect(Array.from(off.data)).not.toEqual(Array.from(on.data));
   });
 });

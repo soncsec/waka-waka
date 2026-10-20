@@ -1,6 +1,8 @@
 import type Phaser from 'phaser';
 import { STEP_EVENT, type GameScene, type GameSnapshot } from '../scenes/GameScene';
 import type { TitleScene, TitleSnapshot } from '../scenes/TitleScene';
+import { soundLog } from '../scenes/sound';
+import type { SoundKey } from '../config/audio';
 
 /**
  * Test-only hook for Playwright (ADR-006). It is loaded only in the e2e build
@@ -27,6 +29,8 @@ export interface TestHook {
   showBonus(): void;
   /** Calls `fn` after every simulation step, from now on (also on later mazes). */
   onStep(fn: () => void): void;
+  /** How many times each sound has played so far (M5.2); muted sounds don't count. */
+  sounds(): Partial<Record<SoundKey, number>>;
 }
 
 declare global {
@@ -70,6 +74,7 @@ export function installTestHook(game: Phaser.Game): void {
       const s = game.scene.getScene('Game') as GameScene | null;
       s?.events.on(STEP_EVENT, fn);
     },
+    sounds: () => ({ ...soundLog }),
     showBonus: () => {
       const s = game.scene.getScene('Game') as GameScene | null;
       if (s && game.scene.isActive('Game')) s.showBonus();

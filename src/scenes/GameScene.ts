@@ -17,6 +17,7 @@ import {
   PHASE_ART,
   SCARED_ART,
   DASH_ART,
+  SPEAKER_HIT,
   STEP_HZ,
   SWIPE,
   TILE_SIZE,
@@ -46,11 +47,14 @@ import type { OpponentName, OpponentState } from '../logic/opponents';
 import { phaseExitOf, primeSpecial, type SpecialPhase } from '../logic/specials';
 import { parseSeed, seedFromRandomWord } from '../logic/seed';
 import { swipeDirection } from '../logic/swipe';
+import { cueWatch, stepSounds, type CueWatch } from '../logic/sounds';
 import { isNewBest } from '../logic/title';
+import type { SoundKey } from '../config/audio';
 import { createJoystick } from '../ui/joystick';
 import { createRotatePrompt } from '../ui/rotatePrompt';
 import { loadHighScore, storeHighScore } from './highScoreStore';
 import { loadReducedFlash } from './reducedFlashStore';
+import { isMuted, MUTE_KEY, play, toggleMute } from './sound';
 import {
   addPixelTexture,
   batteryTexture,
@@ -63,6 +67,7 @@ import {
   PELLET_TEXTURE,
   scaredTexture,
   sparkTexture,
+  speakerTexture,
 } from './textures';
 
 /** Read-only view of the game state, used by the e2e test hook. */
@@ -94,6 +99,8 @@ export interface GameSnapshot {
   phase: Phase;
   /** Paused with P or Esc, or because the tab lost focus (M4.4). */
   paused: boolean;
+  /** Sound is off (M5.2): M or a tap on the HUD speaker. */
+  muted: boolean;
   /** Flashing is reduced (M4.5): steady pellets, battery and scare warning; no crackle when caught. */
   reducedFlash: boolean;
   /** The caught hero's fizzle while dying (M4.5), else null. */
@@ -175,6 +182,8 @@ export class GameScene extends Phaser.Scene {
   private bestBefore: number | undefined;
   private newBestText!: Phaser.GameObjects.Text;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
+  /** The HUD speaker (M5.2): a tap on it, or M, mutes or unmutes. */
+  private speaker!: Phaser.GameObjects.Image;
   private message!: Phaser.GameObjects.Text;
   private hint!: Phaser.GameObjects.Text;
   private gameOverPanel!: Phaser.GameObjects.Container;
@@ -184,6 +193,11 @@ export class GameScene extends Phaser.Scene {
   private pending = 0;
   /** Read once per maze; it can only change on the title screen. */
   private reducedFlash = false;
+  /**
+   * What the sound cues watch, as of the last step (M5.2). Kept from step to step,
+   * so a change made between steps (a test hook) is heard on the next one.
+   */
+  private watch!: CueWatch;
 
   constructor() {
     super('Game');
@@ -208,6 +222,7 @@ export class GameScene extends Phaser.Scene {
     const built = buildMaze(this.seed, this.level);
     this.usedFallback = built.usedFallback;
     this.state = createGame(built.maze, { level: this.level, carry: this.carry });
+    this.watch = cueWatch(this.state);
     this.highScore = loadHighScore();
     this.savedHighScore = this.highScore;
     this.bestBefore ??= this.highScore;
@@ -234,19 +249,27 @@ export class GameScene extends Phaser.Scene {
     this.drawMessages();
     this.placeActors(0);
     this.setUpInput();
+    play(this, 'sfx-ready');
   }
 
   override update(time: number, deltaMs: number): void {
     this.pending += deltaMs / 1000;
     const dt = 1 / STEP_HZ;
     let steps = 0;
+    // Each sound plays once a frame at most, however many steps the frame ran.
+    const sounds = new Set<SoundKey>();
     while (this.pending >= dt && steps < MAX_STEPS_PER_FRAME) {
-      for (const e of stepGame(this.state, dt)) this.removePickup(e, time);
+      const eaten = stepGame(this.state, dt);
+      for (const e of eaten) this.removePickup(e, time);
+      const now = cueWatch(this.state);
+      for (const key of stepSounds(this.watch, now, eaten)) sounds.add(key);
+      this.watch = now;
       this.events.emit(STEP_EVENT);
       this.pending -= dt;
       steps++;
     }
     if (steps === MAX_STEPS_PER_FRAME) this.pending = 0;
+    for (const key of sounds) play(this, key);
 
     if (nextMazeDue(this.state)) {
       const { score, lives, extraLifeGiven } = this.state;
@@ -296,6 +319,7 @@ export class GameScene extends Phaser.Scene {
       newBest: this.newBest(),
       phase: this.state.phase,
       paused: this.state.paused,
+      muted: isMuted(),
       reducedFlash: this.reducedFlash,
       death: this.deathLook(),
       mode: modeOf(this.state),
@@ -363,9 +387,14 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown', (e: KeyboardEvent) => {
       if (handled.has(e)) return;
       handled.add(e);
+      // M mutes at any time, even paused or after the run (M5.2).
+      if (e.code === MUTE_KEY) {
+        this.toggleSound();
+        return;
+      }
       if (this.restartIfOver(e.code === 'Escape')) return;
       if (PAUSE_KEYS.has(e.code)) {
-        this.pause(!this.state.paused);
+        this.pause(!this.state.paused, true);
         return;
       }
       if (this.state.paused) return;
@@ -376,6 +405,11 @@ export class GameScene extends Phaser.Scene {
     // Swipes (WW-06): a direction is taken as soon as the finger has moved far
     // enough, and a new swipe can start without lifting the finger.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      // A tap on the speaker only mutes or unmutes (M5.2).
+      if (this.onSpeaker(p)) {
+        this.toggleSound();
+        return;
+      }
       if (this.restartIfOver()) return;
       // A tap carries on after a pause; it doesn't steer.
       if (this.resumeIfPaused()) return;
@@ -433,9 +467,17 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  /** Pauses or resumes (M4.4); ignored once the run has ended or the maze is cleared. */
-  private pause(on: boolean): void {
+  /**
+   * Pauses or resumes (M4.4); ignored once the run has ended or the maze is cleared.
+   * The pause and resume sounds play only when the player did it (`byPlayer`):
+   * a pause because the tab lost focus or the phone turned is silent.
+   */
+  private pause(on: boolean, byPlayer = false): void {
+    const was = this.state.paused;
     setPaused(this.state, on);
+    if (byPlayer && this.state.paused !== was) {
+      play(this, this.state.paused ? 'sfx-pause' : 'sfx-resume');
+    }
     // No catch-up burst of steps after a long pause.
     this.pending = 0;
     this.showPhase();
@@ -444,8 +486,22 @@ export class GameScene extends Phaser.Scene {
   /** Carries on if paused; true if it did, so the touch that did it doesn't steer. */
   private resumeIfPaused(): boolean {
     if (!this.state.paused) return false;
-    this.pause(false);
+    this.pause(false, true);
     return true;
+  }
+
+  /** Turns sound off or on (M5.2); turning it back on plays the resume sound to show it works. */
+  private toggleSound(): void {
+    if (!toggleMute(this)) play(this, 'sfx-resume');
+    this.speaker.setTexture(speakerTexture(isMuted()));
+  }
+
+  /** Whether a pointer is on the HUD speaker or near it: a target big enough for a thumb. */
+  private onSpeaker(p: Phaser.Input.Pointer): boolean {
+    return (
+      Math.abs(p.x - this.speaker.x) <= SPEAKER_HIT.halfWidth &&
+      p.y >= GAME_HEIGHT - SPEAKER_HIT.height
+    );
   }
 
   /**
@@ -455,8 +511,12 @@ export class GameScene extends Phaser.Scene {
   private restartIfOver(toTitle = false): boolean {
     if (this.state.phase !== 'gameover') return false;
     if (this.state.phaseTime < ROUND.restartDelay) return true;
-    if (toTitle) this.scene.start('Title');
-    else this.scene.restart({});
+    if (toTitle) {
+      this.scene.start('Title');
+    } else {
+      play(this, 'sfx-start');
+      this.scene.restart({});
+    }
     return true;
   }
 
@@ -711,6 +771,12 @@ export class GameScene extends Phaser.Scene {
     this.hiText = hi;
     this.add.text(hi.x - hi.width - HUD.fontSize, top, 'HI', dim).setOrigin(1, 0);
     this.add.text(GAME_WIDTH - m, bottom, `MAZE ${this.level}`, style).setOrigin(1, 0);
+    // The speaker sits in the middle of the bottom row.
+    this.speaker = this.add.image(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - HUD_HEIGHT / 2,
+      speakerTexture(isMuted()),
+    );
     // Spare lives, bottom left.
     const iconY = GAME_HEIGHT - HUD_HEIGHT / 2;
     for (let i = 0; i < ROUND.maxLives - 1; i++) {

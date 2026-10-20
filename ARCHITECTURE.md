@@ -23,6 +23,7 @@ Record **this game's own** decisions below as ADRs, after the owner approves the
 src/
 ├── main.ts            Phaser config, whole-number zoom, loads the test hook in the e2e build only
 ├── config/tuning.ts   every gameplay number
+├── config/audio.ts    the sound list and volumes (M5.2, WW-09)
 ├── logic/             game rules: plain TypeScript, no Phaser imports (ESLint enforces), unit tested
 │   ├── maze/          generator, validator, fallback maze
 │   ├── movement       grid movement and turn buffering
@@ -35,10 +36,13 @@ src/
 │   ├── title          the title screen's page cycle and the NEW BEST! rule (M4.3)
 │   ├── death          the hero's fizzle when caught (M4.5)
 │   ├── reducedFlash   parse, format and resolve the reduced-flash setting (M4.5, WW-08)
+│   ├── mute           parse and format the mute setting (M5.2, WW-08)
+│   ├── sounds         which sounds a game step calls for (M5.2)
 │   └── game           dots, score, lives, phases, the next maze
 ├── art/               code-drawn pixel art, turned into textures at boot
 ├── scenes/            Phaser scenes (Title, then Game): thin, call into logic/
 │   ├── textures.ts    sprite textures shared by both scenes
+│   ├── sound.ts       loads and plays the sounds; mute, saved in localStorage (M5.2, WW-09)
 │   ├── highScoreStore.ts  the high score in localStorage (WW-08)
 │   └── reducedFlashStore.ts  the reduced-flash setting in localStorage (WW-08)
 ├── ui/joystick.ts     the floating touch joystick, plain DOM around the canvas (WW-06)
@@ -49,6 +53,7 @@ tests/
 ├── e2e/               Playwright in Chromium and Firefox, incl. the production CSP
 └── release/           release scripts against a fake server
 scripts/               release.sh, release-remote.sh, smoke_test.py, zap_check.py, check_repo.py
+tools/audio/           build_audio.py: builds public/assets/audio/ from the approved packs (dev machine only)
 ```
 
 ## Game decisions
@@ -105,12 +110,14 @@ Approved by the owner on 2026-10-18. Numbered WW-nn so they never clash with the
 - **Alternatives:** none considered; this is the shared baseline applied to this game's inputs.
 - **Why:** the owner's top priority is that nothing shipped can be exploited.
 - **Amendment (2026-10-19, owner-approved):** a third input, the reduced-flash setting (M4.5), is stored under `waka-waka.reducedFlash`. Only exactly `"1"` or `"0"` is accepted; anything else is removed and the device's "reduce motion" setting applies. Like the high score, it is never put into HTML.
+- **Amendment (2026-10-20, owner-approved):** a fourth input, the mute setting (M5.2), is stored under `waka-waka.muted` with the same rule: only exactly `"1"` or `"0"`; anything else is removed and sound is on.
 
 ### WW-09 Audio later
 
 - **Decision:** no audio until milestone M5. Then: short CC0 sound effects bundled locally, approved by the owner before they are added, listed in `CREDITS.md`, with a mute toggle (the mute setting is not stored).
 - **Alternatives:** synthesised sound in code.
 - **Why:** gameplay feedback comes first; sourcing sounds needs the owner's approval.
+- **Amendment (2026-10-20, owner-approved):** M5 added 12 sounds the owner chose by ear from a listening page: 10 from Juhani Junkala's "512 Sound Effects (8-bit style)" and 2 from Kenney's "63 Digital Sound Effects", both CC0 on OpenGameArt. `tools/audio/build_audio.py` checks each downloaded pack against its recorded SHA-256, copies only the chosen files, and writes each as Ogg and M4A (for iPhone Safari), mono 22 kHz at the same peak level; `src/config/audio.ts` sets the mix. Each dot plays one short blip (never two alternating tones), and there is no siren or background loop (docs/ORIGINALITY.md). The mute setting **is** stored, by the owner's choice (WW-08 amendment): M mutes anywhere, the title has a SOUND button and the HUD a speaker to tap. The repo check keeps audio files valid and under 1 MB in total (about 0.2 MB now).
 
 ### WW-10 Special moves
 
