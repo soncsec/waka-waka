@@ -6,9 +6,9 @@
 |---|---|
 | M0 Setup | Done |
 | M1 First playable | Done |
-| M2 Full classic game | In progress (M2.6 owner playtest) |
-| M3 Endless and smarter | In progress (M3.1 and M3.4 wait for the M2.6 playtest) |
-| M4 Mobile and polish | Tasks done (acceptance: the owner's full run on desktop, phone and tablet) |
+| M2 Full classic game | Done |
+| M3 Endless and smarter | Done |
+| M4 Mobile and polish | Done (signed off by the owner, 2026-10-20) |
 | M5 Sound | Done |
 | M6 Release | Not started |
 
@@ -44,7 +44,7 @@
 - [x] M2.3 Power pellets: scared opponents, eating them for rising points, eyes return to the house
 - [x] M2.4 Wrap-around tunnel (opponents slow inside)
 - [x] M2.5 Extra life; high score in localStorage, validated (WW-08)
-- [ ] M2.6 Owner playtest on desktop and on a phone or tablet; the notes become a tuning PR
+- [x] M2.6 Owner playtest on desktop and on a phone or tablet; the notes become a tuning PR (signed off by the owner 2026-10-20; no tuning changes asked for)
 - [x] M2.7 Originality review against Pac-Man names (including the game's own name), characters, mazes and trade dress
 
 **Acceptance criteria:**
@@ -55,10 +55,10 @@
 
 ## M3 — Endless and smarter
 
-- [ ] M3.1 Fill the difficulty table rows up to the plateau around maze 20 (WW-07)
+- [x] M3.1 Fill the difficulty table rows up to the plateau around maze 20 (WW-07): mazes 6–20 ramp in four bands (6, 9, 13, 17) to the plateau at maze 20
 - [x] M3.2 Special moves: Frenzy (Murk), Dash (Bolt), Lunge (Gnash), Phase (Wisp), each with a visible tell
 - [x] M3.3 Bonus item, twice per maze (not fruit: something that fits Look B, per docs/ORIGINALITY.md): a neon battery on the hero's start spot, worth more on later mazes
-- [ ] M3.4 Balance pass from the owner's playtest notes
+- [x] M3.4 Balance pass from the owner's playtest notes (signed off by the owner 2026-10-20 with no changes)
 
 **Acceptance criteria:**
 - Later mazes feel harder but fair in the owner's playtest.
