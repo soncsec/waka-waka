@@ -10,7 +10,7 @@
 | M3 Endless and smarter | Done |
 | M4 Mobile and polish | Done (signed off by the owner, 2026-10-20) |
 | M5 Sound | Done |
-| M6 Release | Not started |
+| M6 Release | In progress (M6.3: the portal card PR, soncsec/games-portal#30, waits on the portal's own Vite bump) |
 
 ## M0 — Setup
 
@@ -92,7 +92,7 @@
 - [x] M6.1 Security report: CodeQL, ESLint, `npm audit`, gitleaks and ZAP results, with 0 critical or high findings ([docs/SECURITY-REPORT.md](docs/SECURITY-REPORT.md); Vite bumped to 8.3.3 for three dev-server advisories)
 - [x] M6.2 Originality re-check of anything changed since M2.7 (docs/ORIGINALITY.md findings 15–18: pellet 40, our own house release numbers)
 - [ ] M6.3 Portal card refresh (new image if the look has changed), by PR to `soncsec/games-portal`
-- [ ] M6.4 Production release with `scripts/release.sh deploy`, only after the owner approves it
+- [x] M6.4 Production release with `scripts/release.sh deploy`, only after the owner approves it (release 20261020T221901Z-a59ac661, live and checked on 2026-10-20)
 
 **Acceptance criteria:**
 - The owner approves the release.
