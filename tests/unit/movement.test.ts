@@ -120,6 +120,36 @@ describe('chooseToward', () => {
     const lane = openIn(['#####', '#...#', '#####']);
     expect(chooseToward(at(3, 1, 'right'), { x: 9, y: 9 }, lane)).toBe('left');
   });
+
+  describe('with look-ahead (M7.1)', () => {
+    // At (3, 1) heading right, the hero is at (3, 4). Down looks nearest, but it is
+    // a dead-end pocket; the way round is right, then down the side.
+    const pocket = openIn(['#######', '#.....#', '#.#.#.#', '#.###.#', '#.....#', '#######']);
+    const hero = { x: 3, y: 4 };
+
+    it('without it, takes the tile nearest now, into the pocket', () => {
+      expect(chooseToward(at(3, 1, 'right'), hero, pocket)).toBe('down');
+    });
+
+    it('with it, sees the pocket is a dead end and goes round', () => {
+      expect(chooseToward(at(3, 1, 'right'), hero, pocket, 2)).toBe('right');
+      expect(chooseToward(at(3, 1, 'right'), hero, pocket, 4)).toBe('right');
+    });
+
+    it('still enters a dead end that holds the target', () => {
+      expect(chooseToward(at(3, 1, 'right'), { x: 3, y: 2 }, pocket, 3)).toBe('down');
+    });
+
+    it('when every way dead-ends, falls back to the nearest first tile', () => {
+      const lane = openIn(['#####', '#...#', '##.##', '#####']);
+      // At (2, 1) heading up (down would reverse): left and right both end at once.
+      expect(chooseToward(at(2, 1, 'up'), { x: 4, y: 2 }, lane, 3)).toBe('right');
+    });
+
+    it('never reverses while another way is open', () => {
+      expect(chooseToward(at(3, 1, 'right'), { x: 1, y: 1 }, pocket, 4)).not.toBe('left');
+    });
+  });
 });
 
 describe('steer', () => {

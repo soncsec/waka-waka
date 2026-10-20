@@ -37,7 +37,11 @@ describe('levelRow', () => {
       expect(row.scaredSeconds, `maze ${i + 1}`).toBeLessThanOrEqual(prev.scaredSeconds);
       expect(row.bonusPoints, `maze ${i + 1}`).toBeGreaterThanOrEqual(prev.bonusPoints);
       expect(row.releaseIdleSeconds, `maze ${i + 1}`).toBeLessThanOrEqual(prev.releaseIdleSeconds);
+      expect(row.lookAhead, `maze ${i + 1}`).toBeGreaterThanOrEqual(prev.lookAhead);
     }
+    // Look-ahead (M7.1) is off on the early mazes and stays short.
+    expect(LEVELS.slice(0, 8).every((row) => row.lookAhead === 0)).toBe(true);
+    for (const row of LEVELS) expect(row.lookAhead).toBeLessThanOrEqual(5);
     // Opponents stay slower than the hero out in the maze (special moves aside).
     for (const row of LEVELS) expect(row.opponentSpeed).toBeLessThan(row.heroSpeed);
     // Every move is on by maze 5 and stays on.

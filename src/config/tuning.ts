@@ -74,6 +74,11 @@ export interface LevelRow {
   phase: PhaseRow | null;
   /** Points for eating the bonus battery on this maze (M3.3). */
   bonusPoints: number;
+  /**
+   * How many tiles past the next one an opponent weighs when it picks a way
+   * towards its target (M7.1): 0 takes the tile nearest the target now.
+   */
+  lookAhead: number;
 }
 
 /**
@@ -156,6 +161,7 @@ const MAZE_1: LevelRow = {
   lunge: null,
   phase: null,
   bonusPoints: 250,
+  lookAhead: 0,
 };
 
 const DASH: DashRow = { range: 8, tell: 0.6, factor: 2.2, cooldown: 10 };
@@ -176,9 +182,10 @@ const MAZE_5: LevelRow = { ...MAZE_3, phase: PHASE, bonusPoints: 1500 };
 /*
  * Mazes 6 to 20 (M3.1) ramp up in four bands to the plateau at maze 20, which
  * then repeats. Each band: opponents a little faster, shorter cooldowns between
- * special moves, an earlier house release and shorter scatter breaks. Inside a
- * band the scare shrinks; the battery is worth 500 more each maze. Tells never drop below
- * the 0.5 s fairness floor (WW-10).
+ * special moves, an earlier house release and shorter scatter breaks; from maze 9
+ * the opponents also look ahead (M7.1): 3 tiles, then 4 from maze 13 and 5 from 17.
+ * Inside a band the scare shrinks; the battery is worth 500 more each maze.
+ * Tells never drop below the 0.5 s fairness floor (WW-10).
  */
 const BAND_6: LevelRow = {
   ...MAZE_5,
@@ -203,6 +210,7 @@ const BAND_6: LevelRow = {
 
 const BAND_9: LevelRow = {
   ...BAND_6,
+  lookAhead: 3,
   heroSpeed: 7.8,
   opponentSpeed: 7.4,
   tunnelSpeed: 4,
@@ -214,6 +222,7 @@ const BAND_9: LevelRow = {
 
 const BAND_13: LevelRow = {
   ...BAND_9,
+  lookAhead: 4,
   heroSpeed: 8,
   opponentSpeed: 7.6,
   tunnelSpeed: 4.5,
@@ -236,6 +245,7 @@ const BAND_13: LevelRow = {
 
 const BAND_17: LevelRow = {
   ...BAND_13,
+  lookAhead: 5,
   opponentSpeed: 7.8,
   frenzy: { ...FRENZY, every: 12, tell: 0.8 },
   dash: { ...DASH, tell: 0.5, cooldown: 6 },

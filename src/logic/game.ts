@@ -442,7 +442,8 @@ function moveOpponents(
       if (Number.isInteger(o.x) && Number.isInteger(o.y) && stop(o)) endLunge(special);
       return;
     }
-    const choose = (m: Mover): Dir => chooseToward(m, chaseTarget(o.name, m, ctx), open);
+    const choose = (m: Mover): Dir =>
+      chooseToward(m, chaseTarget(o.name, m, ctx), open, state.row.lookAhead);
     // Bolt and Gnash halt on the tile centre where their move could start; the tell begins
     // next step (WW-10).
     const startsHere = (m: Mover): boolean => {

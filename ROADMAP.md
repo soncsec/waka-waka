@@ -11,6 +11,7 @@
 | M4 Mobile and polish | Done (signed off by the owner, 2026-10-20) |
 | M5 Sound | Done |
 | M6 Release | Done |
+| M7 Smarter late mazes | In progress |
 
 ## M0 — Setup
 
@@ -97,3 +98,14 @@
 **Acceptance criteria:**
 - The owner approves the release.
 - The game is live at `games.soncrant.com/waka-waka/` and the smoke test passes.
+
+## M7 — Smarter late mazes
+
+Added on 2026-10-20 at the owner's request, after M6.
+
+- [x] M7.1 Opponent look-ahead, as WW-02 and WW-07 planned: a look-ahead depth column in the difficulty table (0 to maze 8, then 3, 4 and 5), with the docs describing what was built
+
+**Acceptance criteria:**
+- Mazes 1 to 8 play exactly as before.
+- Look-ahead never makes an opponent reverse or skip a tell, and costs little time per frame.
+- CI is green.
