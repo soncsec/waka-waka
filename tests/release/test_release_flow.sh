@@ -47,7 +47,10 @@ if [[ "$*" == "run check" ]]; then
   rm -rf dist && mkdir -p dist/assets
   printf '<!doctype html><title>Waka-Waka</title><script type="module" src="./assets/index-AbCd1234.js"></script>\n' >dist/index.html
   [[ "${FAKE_BROKEN:-}" == 1 ]] || echo "// game" >dist/assets/index-AbCd1234.js
+  # FAKE_MOVE_HEAD=1: someone pulls a new commit into the checkout mid-build.
+  [[ "${FAKE_MOVE_HEAD:-}" == 1 ]] && git commit -q --allow-empty -m "pulled mid-build"
 fi
+exit 0
 SH
 chmod +x "$T/bin/"*
 
@@ -103,6 +106,12 @@ echo dirty >untracked.txt
 out="$(release deploy)"
 if [[ $? -ne 0 && "$out" == *"working tree has changes"* ]]; then ok "refuses uncommitted changes"; else bad "dirty tree: $out"; fi
 rm untracked.txt
+
+out="$(FAKE_MOVE_HEAD=1 release deploy)"; rc=$?
+git reset -q --hard origin/main
+if [[ $rc -ne 0 && "$out" == *"checkout changed during the build"* && "$(count)" == 0 ]]; then
+  ok "refuses to upload when the checkout moves during the build"
+else bad "moved HEAD: $out"; fi
 
 out="$(release deploy --dry-run)"
 if [[ $? -eq 0 && "$out" == *"Dry run"* && "$(count)" == 0 ]]; then ok "dry run uploads nothing"; else bad "dry run: $out"; fi
