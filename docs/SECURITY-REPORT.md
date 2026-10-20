@@ -1,7 +1,7 @@
 # Waka-Waka — Security report (M6.1)
 
 > **As of:** 2026-10-20, on commit `ab8445f` (live as release `20261020T205724Z-ab8445fd`), plus the Vite 8.3.3 bump in this PR.
-> **Result:** 0 critical and 0 high findings. One moderate advisory in a development tool, fixed here.
+> **Result:** 0 critical and 0 high findings once this PR merges. Three advisories published on 2026-10-20 in a development tool (one high, two moderate) are fixed here; none reaches players.
 
 ## Results
 
@@ -9,7 +9,7 @@
 |---|---|---|
 | CodeQL (JavaScript and TypeScript, 126 rules) | CI, every push and pull request | 0 results on `ab8445f`; 0 alerts open, none ever raised |
 | ESLint | `npm run check`, CI | Clean |
-| `npm audit` | CI (fails on high or critical), local | Before: 1 moderate (below). After the Vite bump: 0 of any severity |
+| `npm audit` | CI (fails on high or critical), local | On Vite 8.3.2: 1 high (three advisories, below), which fails the CI gate from 2026-10-20. On Vite 8.3.3: 0 of any severity |
 | gitleaks 8.30.1 (pinned, checksum checked) | CI, whole history | 47 commits scanned, no leaks (also run locally: none) |
 | GitHub secret scanning and Dependabot alerts | GitHub | 0 open |
 | OWASP ZAP 2.17.0 baseline (passive) | CI, against staging on GitHub Pages | 0 failures, 0 high; 13 warnings, explained below |
@@ -17,9 +17,17 @@
 | Production-CSP end-to-end test | `npm run check`, CI | The game runs under the production policy with no violations |
 | Live check after release | Chromium and Firefox against the live site | No console errors, no requests to other hosts, no test hook, all 12 sounds load from our own server |
 
-## The moderate advisory (fixed)
+## The Vite advisories (fixed)
 
-[GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv), published 2026-10-20: `launch-editor` inside Vite 8.3.0–8.3.2 does not escape `%` on Windows when the dev server opens a file in an editor. It is a development tool: it never ships to players and the dev machine runs Linux. Fixed by Vite 8.3.3 (released 2026-10-06, so it meets the two-week rule); the owner approved the bump on 2026-10-20. Nothing else in the lockfile changed.
+Three advisories were published on 2026-10-20 for `launch-editor`, which Vite 8.3.0–8.3.2 bundles for its dev server's "open in editor" feature:
+
+| Advisory | Severity | What |
+|---|---|---|
+| [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm) | High | A file existence check can be bypassed on Windows |
+| [GHSA-r825-w8mm-5pxw](https://github.com/advisories/GHSA-r825-w8mm-5pxw) | Moderate | Editor command-line flags can be misread, running commands with some editors |
+| [GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv) | Moderate | `%` is not escaped on Windows |
+
+All three need the Vite dev server running and a request to its editor endpoint. The dev server is a development tool: it never ships to players, and the dev machine runs Linux. Vite 8.3.3 fixes all three (released 2026-10-06, so it meets the two-week rule); the owner approved the bump on 2026-10-20. Nothing else in the lockfile changed. Other Soncrant Arcade repos on Vite 8.3.0–8.3.2 (including the games portal) are affected the same way and need the same bump.
 
 ## ZAP warnings on staging
 

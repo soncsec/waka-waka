@@ -89,8 +89,8 @@
 
 ## M6 — Release
 
-- [x] M6.1 Security report: CodeQL, ESLint, `npm audit`, gitleaks and ZAP results, with 0 critical or high findings ([docs/SECURITY-REPORT.md](docs/SECURITY-REPORT.md); Vite bumped to 8.3.3 for a moderate dev-only advisory)
-- [ ] M6.2 Originality re-check of anything changed since M2.7
+- [x] M6.1 Security report: CodeQL, ESLint, `npm audit`, gitleaks and ZAP results, with 0 critical or high findings ([docs/SECURITY-REPORT.md](docs/SECURITY-REPORT.md); Vite bumped to 8.3.3 for three dev-server advisories)
+- [x] M6.2 Originality re-check of anything changed since M2.7 (docs/ORIGINALITY.md findings 15–18: pellet 40, our own house release numbers)
 - [ ] M6.3 Portal card refresh (new image if the look has changed), by PR to `soncsec/games-portal`
 - [ ] M6.4 Production release with `scripts/release.sh deploy`, only after the owner approves it
 
