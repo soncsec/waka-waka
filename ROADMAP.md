@@ -11,7 +11,7 @@
 | M4 Mobile and polish | Done (signed off by the owner, 2026-10-20) |
 | M5 Sound | Done |
 | M6 Release | Done |
-| M7 Smarter late mazes | In progress |
+| M7 Smarter late mazes | Done |
 
 ## M0 — Setup
 
